@@ -1,18 +1,18 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
-import MyPlugin from './main';
+import DocumentExportPlugin from './main.js';
 
-export interface MyPluginSettings {
-	mySetting: string;
+export interface DocumentExportSettings {
+	outputFormat: string;
 }
 
-export const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default',
+export const DEFAULT_SETTINGS: DocumentExportSettings = {
+	outputFormat: 'pdf',
 };
 
-export class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+export class DocumentExportSettingTab extends PluginSettingTab {
+	plugin: DocumentExportPlugin;
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: DocumentExportPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
@@ -23,14 +23,14 @@ export class SampleSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Settings #1')
-			.setDesc("It's a secret")
+			.setName('Output format')
+			.setDesc('Select the default export format')
 			.addText((text) =>
 				text
-					.setPlaceholder('Enter your secret')
-					.setValue(this.plugin.settings.mySetting)
+					.setPlaceholder('PDF, docx, or LaTeX')
+					.setValue(this.plugin.settings.outputFormat)
 					.onChange(async (value) => {
-						this.plugin.settings.mySetting = value;
+						this.plugin.settings.outputFormat = value;
 						await this.plugin.saveSettings();
 					}),
 			);

@@ -1,8 +1,205 @@
-/*
+.export-modal {
+    min-height: 600px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.export-modal__dialog {
+    width: 600px;
+    max-width: 100%;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-l);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
 
-If your plugin does not need CSS, delete this file.
+.export-modal__header,
+.export-modal__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+}
 
-*/
+.export-modal__header {
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.export-modal__footer {
+    border-top: 1px solid var(--background-modifier-border);
+}
+
+.export-modal__title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.export-modal__subtitle {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.export-modal__close {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--text-normal);
+    cursor: pointer;
+}
+
+.export-modal__body {
+    display: flex;
+    min-width: 0;
+}
+
+.export-modal__nav {
+    width: 168px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--background-modifier-border);
+    padding: 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.export-modal__nav-btn {
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: var(--radius-s);
+    font-size: 14px;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.export-modal__nav-btn.active,
+.export-modal__nav-btn:hover {
+    background: var(--background-secondary);
+}
+
+.export-modal__nav-btn.active {
+    color: var(--text-normal);
+    font-weight: 500;
+}
+
+.export-modal__panel {
+    flex: 1;
+    padding: 18px 20px;
+    min-width: 0;
+}
+
+.export-modal__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+}
+
+.export-modal__divider {
+    border-bottom: 1px solid var(--background-modifier-border);
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+}
+
+.export-modal__small-row {
+    padding: 4px 0;
+}
+
+.export-modal__label {
+    font-size: 14px;
+}
+
+.export-modal__sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 2px 0 4px;
+}
+
+.export-modal__note {
+    font-size: 12px;
+    color: var(--text-faint);
+    width: 16px;
+}
+
+.export-modal__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--background-secondary);
+    border-radius: var(--radius-s);
+    cursor: grab;
+}
+
+.export-modal__item:hover {
+    background: var(--background-secondary-alt);
+}
+
+.export-modal__panel-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.export-modal__card {
+    background: var(--background-secondary);
+    border-radius: var(--radius-s);
+    padding: 12px;
+}
+
+.export-modal__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 10px 0 14px;
+}
+
+.export-modal__input,
+.export-modal__select {
+    width: 100%;
+    min-width: 0;
+    padding: 7px 10px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s);
+    background: var(--background-secondary);
+    color: var(--text-normal);
+}
+
+.export-modal__button {
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s);
+    padding: 0 14px;
+    min-height: 32px;
+    background: transparent;
+    color: var(--text-normal);
+    cursor: pointer;
+}
+
+.export-modal__button--primary {
+    background: var(--interactive-accent);
+    border-color: transparent;
+    color: var(--text-on-accent);
+}
+
+.export-modal-toggle {
+    cursor: pointer;
+    margin-left: auto;
+}
