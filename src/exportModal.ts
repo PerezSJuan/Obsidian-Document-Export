@@ -82,13 +82,6 @@ export class ExportVaultModal extends Modal {
 			text: 'Export vault to book',
 			cls: 'export-modal__title',
 		});
-
-		const closeBtn = header.createEl('button', {
-			cls: 'export-modal__close',
-			attr: { 'aria-label': 'Close' },
-		});
-		closeBtn.createSpan({ cls: 'ti ti-x' });
-		closeBtn.addEventListener('click', () => this.close());
 	}
 
 	private buildNavigation(
