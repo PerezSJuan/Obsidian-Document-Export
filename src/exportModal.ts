@@ -1,4 +1,5 @@
 import { App, Modal, Notice } from 'obsidian';
+import { NoteSuggestModal } from './noteSuggestModal.js';
 
 type PanelId = 'source' | 'structure' | 'front' | 'output';
 type ContentMode = 'manifest' | 'manual';
@@ -29,6 +30,8 @@ export class ExportVaultModal extends Modal {
 	private manualSectionEl?: HTMLDivElement;
 	private wikilinkMode = 'resolve';
 	private tagMode = 'keep';
+	private noteNameMode = 'none';
+	private indexNotePath = '';
 
 	constructor(app: App) {
 		super(app);
@@ -185,10 +188,13 @@ export class ExportVaultModal extends Modal {
 		});
 		selectBtn.createSpan({ text: '\u25BC', cls: 'export-modal__select-caret' });
 		selectBtn.addEventListener('click', () => {
-			new Notice('Note selection is not implemented yet.');
+			new NoteSuggestModal(this.app, (path) => {
+				this.indexNotePath = path;
+				this.syncManifestPreview(container);
+			}).open();
 		});
 
-		container.createEl('p', {
+		const chaptersP = container.createEl('p', {
 			text: 'Detected chapters: 0',
 			cls: 'export-modal__sub',
 		});
@@ -198,6 +204,25 @@ export class ExportVaultModal extends Modal {
 			text: 'No index note selected.',
 			cls: 'export-modal__empty-state',
 		});
+	}
+
+	private syncManifestPreview(container: HTMLDivElement) {
+		const sub = container.querySelector('.export-modal__sub');
+		const preview = container.querySelector('.export-modal__preview-box');
+		if (!sub || !preview) return;
+		sub.textContent = 'Detected chapters: 0';
+		preview.empty();
+		if (!this.indexNotePath) {
+			preview.createEl('p', {
+				text: 'No index note selected.',
+				cls: 'export-modal__empty-state',
+			});
+		} else {
+			preview.createEl('p', {
+				text: this.indexNotePath,
+				cls: 'export-modal__empty-state',
+			});
+		}
 	}
 
 	private buildManualContentsSection(container: HTMLDivElement) {
@@ -212,7 +237,12 @@ export class ExportVaultModal extends Modal {
 			cls: 'export-modal__small-button',
 		});
 		addBtn.addEventListener('click', () => {
-			new Notice('Note selection is not implemented yet.');
+			new NoteSuggestModal(this.app, (path) => {
+				if (!this.selectedNotes.includes(path)) {
+					this.selectedNotes.push(path);
+					this.renderSelectedNotes();
+				}
+			}).open();
 		});
 	}
 
@@ -390,6 +420,20 @@ export class ExportVaultModal extends Modal {
 		tagSelect.addEventListener('change', () => {
 			this.tagMode = tagSelect.value;
 		});
+
+		const noteNameField = fields.createDiv({ cls: 'export-modal__field' });
+		this.buildFieldLabel(noteNameField, 'Note name');
+		const noteNameSelect = noteNameField.createEl('select');
+		[
+			{ value: 'none', label: 'None' },
+			...this.getHeadingMappingOptions(),
+		].forEach((opt) => {
+			noteNameSelect.createEl('option', { value: opt.value, text: opt.label });
+		});
+		noteNameSelect.value = this.noteNameMode;
+		noteNameSelect.addEventListener('change', () => {
+			this.noteNameMode = noteNameSelect.value;
+		});
 	}
 
 	private getHeadingMappingOptions(): HeadingMappingOption[] {
@@ -475,41 +519,17 @@ export class ExportVaultModal extends Modal {
 		const section = container.createDiv({ cls: 'export-modal__section' });
 		this.buildSectionHeading(section, 'Formats');
 
-		this.buildPdfFormat(section);
-		this.buildDocxFormat(section);
-		this.buildLatexFormat(section);
-	}
-
-	private buildPdfFormat(container: HTMLDivElement) {
-		const optionsDiv = container.createDiv({ cls: 'export-modal__nested-field' });
-		this.buildFieldLabel(optionsDiv, 'Engine');
-		const select = optionsDiv.createEl('select');
-		[
-			{ value: 'typst', label: 'Typst (recommended)' },
-			{ value: 'tectonic', label: 'Tectonic' },
-			{ value: 'xelatex', label: 'XeLaTeX' },
-		].forEach((option) => {
-			select.createEl('option', { value: option.value, text: option.label });
+		const formats = [
+			{ id: 'fmtPdf', label: 'PDF', checked: true },
+			{ id: 'fmtDocx', label: 'DOCX', checked: false },
+			{ id: 'fmtLatex', label: 'LaTeX source', checked: false },
+		];
+		formats.forEach((f) => {
+			const row = section.createEl('label', { cls: 'export-modal__checkbox-row' });
+			const cb = row.createEl('input', { attr: { type: 'checkbox', id: f.id } });
+			cb.checked = f.checked;
+			row.createSpan({ text: f.label });
 		});
-
-		this.createFormatBlock(container, 'fmtPdf', 'PDF', true, optionsDiv);
-	}
-
-	private buildDocxFormat(container: HTMLDivElement) {
-		const optionsDiv = container.createDiv({ cls: 'export-modal__nested-field' });
-		this.createTextField(optionsDiv, 'Reference template path', '');
-		this.createFormatBlock(container, 'fmtDocx', 'DOCX', false, optionsDiv);
-	}
-
-	private buildLatexFormat(container: HTMLDivElement) {
-		const optionsDiv = container.createDiv({ cls: 'export-modal__nested-field' });
-		this.buildFieldLabel(optionsDiv, 'Document class');
-		const select = optionsDiv.createEl('select');
-		['scrbook', 'memoir', 'book'].forEach((docClass) => {
-			select.createEl('option', { value: docClass, text: docClass });
-		});
-
-		this.createFormatBlock(container, 'fmtLatex', 'LaTeX source', false, optionsDiv);
 	}
 
 	private buildSavePathSection(container: HTMLDivElement) {
@@ -520,30 +540,6 @@ export class ExportVaultModal extends Modal {
 		this.createPathField(section, 'Save to', './book', 'Browse', () => {
 			new Notice('Save path selection is not implemented yet.');
 		});
-	}
-
-	private createFormatBlock(
-		container: HTMLDivElement,
-		id: string,
-		label: string,
-		checked: boolean,
-		optionsEl?: HTMLDivElement,
-	): HTMLDivElement {
-		const wrap = container.createDiv({ cls: 'export-modal__format-block' });
-		const row = wrap.createEl('label', { cls: 'export-modal__checkbox-row' });
-		const checkbox = row.createEl('input', { attr: { type: 'checkbox', id } });
-		checkbox.checked = checked;
-		row.createSpan({ text: label });
-
-		if (optionsEl) {
-			wrap.appendChild(optionsEl);
-			optionsEl.style.display = checked ? 'block' : 'none';
-			checkbox.addEventListener('change', () => {
-				optionsEl.style.display = checkbox.checked ? 'block' : 'none';
-			});
-		}
-
-		return wrap;
 	}
 
 	private buildPanelHeading(container: HTMLDivElement, title: string) {
