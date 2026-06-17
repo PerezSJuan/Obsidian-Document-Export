@@ -1,7 +1,13 @@
+.export-modal-shell .modal-content {
+    width: min(1180px, calc(100vw - 48px));
+    max-width: 1180px;
+}
+
 .export-modal {
     display: flex;
     flex-direction: column;
-    height: 600px;
+    width: 100%;
+    height: 100%;
 }
 
 .export-modal__header {
@@ -41,47 +47,71 @@
     display: flex;
     flex: 1;
     min-height: 0;
+    gap: 0;
 }
 
 .export-modal__nav {
-    width: 140px;
+    width: 240px;
     flex-shrink: 0;
     border-right: 1px solid var(--background-modifier-border);
-    padding: 8px 4px;
+    padding: 12px 10px;
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 4px;
+    background: var(--background-secondary);
 }
 
-.export-modal__nav-btn {
+.export-modal__nav-item {
     width: 100%;
     text-align: left;
-    border: none;
-    background: transparent;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    border-radius: var(--radius-s);
-    font-size: var(--font-ui-small);
+    gap: 10px;
+    padding: 8px 12px;
+    font-size: var(--font-ui-medium);
     color: var(--text-muted);
     cursor: pointer;
+    border: 1px solid transparent;
+    border-radius: var(--radius-s);
+    user-select: none;
 }
-.export-modal__nav-btn:hover {
-    background: var(--background-modifier-hover);
+
+.export-modal__nav-item:hover {
     color: var(--text-normal);
-}
-.export-modal__nav-btn.active {
     background: var(--background-modifier-hover);
+}
+
+.export-modal__nav-item.active {
     color: var(--text-normal);
     font-weight: var(--font-semibold);
+    background: var(--background-modifier-hover);
+    border-color: var(--background-modifier-border);
+    box-shadow: inset 2px 0 0 var(--interactive-accent);
+}
+
+.export-modal__nav-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    color: var(--text-faint);
+    flex-shrink: 0;
+}
+
+.export-modal__nav-item.active .export-modal__nav-icon {
+    color: var(--interactive-accent);
+}
+
+.export-modal__nav-label {
+    line-height: 1.3;
 }
 
 .export-modal__panel {
     flex: 1;
-    padding: 16px 20px;
+    padding: 18px 22px;
     overflow-y: auto;
     min-width: 0;
+    background: var(--background-primary);
 }
 
 .export-modal__footer {
@@ -96,7 +126,7 @@
 
 .export-modal__panel-title {
     margin: 0 0 16px;
-    font-size: var(--font-ui-medium);
+    font-size: var(--font-ui-large);
     font-weight: var(--font-semibold);
 }
 
@@ -114,12 +144,12 @@
 
 .export-modal__section-title {
     margin: 0 0 8px;
-    font-size: var(--font-ui-small);
+    font-size: var(--font-ui-medium);
     font-weight: var(--font-semibold);
 }
 
 .export-modal__sub {
-    font-size: var(--font-ui-smaller);
+    font-size: var(--font-ui-small);
     color: var(--text-muted);
     margin: 0 0 8px;
 }
@@ -136,7 +166,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: var(--font-ui-small);
+    font-size: var(--font-ui-medium);
 }
 
 .export-modal__conditional-section {
@@ -162,7 +192,7 @@
 .export-modal__field-label {
     margin: 0;
     color: var(--text-muted);
-    font-size: var(--font-ui-smaller);
+    font-size: var(--font-ui-small);
 }
 
 .export-modal__inline-row {
@@ -180,7 +210,7 @@
 
 .export-modal__select-caret {
     color: var(--text-muted);
-    font-size: 9px;
+    font-size: 11px;
 }
 
 .export-modal__small-button {
@@ -200,13 +230,13 @@
 .export-modal__empty-state {
     margin: 0;
     color: var(--text-muted);
-    font-size: var(--font-ui-small);
+    font-size: var(--font-ui-medium);
 }
 
 .export-modal__note-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 5px;
     list-style: none;
     margin: 0;
     padding: 0;
@@ -220,7 +250,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 5px 8px;
+    padding: 7px 10px;
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--radius-s);
     background: var(--background-primary);
@@ -236,8 +266,8 @@
 }
 
 .export-modal__note-number {
-    width: 14px;
-    font-size: var(--font-ui-smaller);
+    width: 16px;
+    font-size: var(--font-ui-small);
     color: var(--text-faint);
     flex-shrink: 0;
     text-align: right;
@@ -247,7 +277,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: var(--font-ui-smaller);
+    font-size: var(--font-ui-small);
 }
 
 .export-modal__setting-row {
@@ -259,7 +289,7 @@
 }
 
 .export-modal__label {
-    font-size: var(--font-ui-small);
+    font-size: var(--font-ui-medium);
 }
 
 .export-modal__mapping-row {
@@ -272,7 +302,7 @@
 
 .export-modal__mapping-level {
     color: var(--text-muted);
-    font-size: var(--font-ui-smaller);
+    font-size: var(--font-ui-small);
 }
 
 .export-modal__preview-row {
@@ -283,18 +313,18 @@
 }
 
 .export-modal__badge {
-    min-width: 70px;
-    padding: 1px 6px;
+    min-width: 78px;
+    padding: 2px 8px;
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--radius-s);
     color: var(--text-muted);
-    font-size: var(--font-ui-smaller);
+    font-size: var(--font-ui-small);
     line-height: 1.5;
     text-align: center;
 }
 
 .export-modal__preview-text {
-    font-size: var(--font-ui-small);
+    font-size: var(--font-ui-medium);
 }
 
 .export-modal__format-block {

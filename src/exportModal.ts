@@ -38,6 +38,11 @@ export class ExportVaultModal extends Modal {
 		contentEl.empty();
 		contentEl.classList.add('export-modal');
 
+		this.modalEl.style.setProperty('width', '92vw');
+		this.modalEl.style.setProperty('max-width', '92vw');
+		this.modalEl.style.setProperty('height', '90vh');
+		this.modalEl.style.setProperty('max-height', '90vh');
+
 		this.buildHeader(contentEl);
 
 		const body = contentEl.createDiv({ cls: 'export-modal__body' });
@@ -65,6 +70,10 @@ export class ExportVaultModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.classList.remove('export-modal');
+		this.modalEl.style.removeProperty('width');
+		this.modalEl.style.removeProperty('max-width');
+		this.modalEl.style.removeProperty('height');
+		this.modalEl.style.removeProperty('max-height');
 	}
 
 	private buildHeader(container: HTMLElement) {
@@ -85,7 +94,7 @@ export class ExportVaultModal extends Modal {
 	private buildNavigation(
 		nav: HTMLDivElement,
 		panelMap: Record<PanelId, HTMLDivElement>,
-	): Record<PanelId, HTMLButtonElement> {
+	): Record<PanelId, HTMLDivElement> {
 		const navItems: { id: PanelId; label: string; icon: string }[] = [
 			{ id: 'source', label: 'Source', icon: 'ti ti-folder' },
 			{ id: 'structure', label: 'Structure', icon: 'ti ti-hierarchy' },
@@ -93,16 +102,27 @@ export class ExportVaultModal extends Modal {
 			{ id: 'output', label: 'Output', icon: 'ti ti-download' },
 		];
 
-		const navMap = {} as Record<PanelId, HTMLButtonElement>;
+		const navMap = {} as Record<PanelId, HTMLDivElement>;
 		navItems.forEach((item) => {
-			const btn = nav.createEl('button', {
-				cls: 'export-modal__nav-btn',
-				attr: { 'data-target': item.id },
+			const itemEl = nav.createDiv({
+				cls: 'export-modal__nav-item',
+				attr: {
+					'data-target': item.id,
+					role: 'button',
+					tabindex: '0',
+				},
 			});
-			btn.createSpan({ cls: item.icon });
-			btn.createSpan({ text: item.label });
-			navMap[item.id] = btn;
-			btn.addEventListener('click', () => this.switchPanel(item.id, navMap, panelMap));
+			itemEl.createSpan({ cls: `export-modal__nav-icon ${item.icon}` });
+			itemEl.createSpan({ text: item.label, cls: 'export-modal__nav-label' });
+			navMap[item.id] = itemEl;
+			const activate = () => this.switchPanel(item.id, navMap, panelMap);
+			itemEl.addEventListener('click', activate);
+			itemEl.addEventListener('keydown', (event) => {
+				if (event.key === 'Enter' || event.key === ' ') {
+					event.preventDefault();
+					activate();
+				}
+			});
 		});
 
 		return navMap;
@@ -124,7 +144,7 @@ export class ExportVaultModal extends Modal {
 
 	private switchPanel(
 		id: PanelId,
-		navMap: Record<PanelId, HTMLButtonElement>,
+		navMap: Record<PanelId, HTMLDivElement>,
 		panelMap: Record<PanelId, HTMLDivElement>,
 	) {
 		Object.entries(navMap).forEach(([key, btn]) => {
