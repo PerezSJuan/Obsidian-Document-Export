@@ -277,6 +277,9 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
     font-size: var(--font-ui-small);
 }
 
@@ -397,6 +400,24 @@
 }
 .tg input:checked + i::before {
     transform: translateX(16px);
+}
+
+.export-modal__error-badge {
+    font-size: var(--font-ui-smaller);
+    color: var(--text-error);
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.export-modal__remove-btn {
+    margin-left: auto;
+    cursor: pointer;
+    color: var(--text-faint);
+    flex-shrink: 0;
+    line-height: 1;
+}
+.export-modal__remove-btn:hover {
+    color: var(--text-error);
 }
 
 .export-modal-toggle {

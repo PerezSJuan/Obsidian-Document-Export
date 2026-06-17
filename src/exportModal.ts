@@ -1,4 +1,4 @@
-import { App, Modal, Notice } from 'obsidian';
+import { App, Modal, Notice, TFile } from 'obsidian';
 import { NoteSuggestModal } from './noteSuggestModal.js';
 
 type PanelId = 'source' | 'structure' | 'front' | 'output';
@@ -32,6 +32,8 @@ export class ExportVaultModal extends Modal {
 	private tagMode = 'keep';
 	private noteNameMode = 'none';
 	private indexNotePath = '';
+	private dragIndex = -1;
+	private parsedWikilinks: { target: string; display: string; exists: boolean }[] = [];
 
 	constructor(app: App) {
 		super(app);
@@ -206,23 +208,96 @@ export class ExportVaultModal extends Modal {
 		});
 	}
 
+	private parseWikilinks(content: string): { target: string; display: string }[] {
+		const results: { target: string; display: string }[] = [];
+		const regex = /\[\[([^\]]+?)\]\]/g;
+		let match: RegExpExecArray | null;
+		while ((match = regex.exec(content)) !== null) {
+			const inner = match[1]?.trim();
+			if (!inner) continue;
+			const parts = inner.split('|');
+			const target = parts[0]?.trim() ?? '';
+			if (!target) continue;
+			const display = parts.length > 1 ? (parts[1]?.trim() ?? target) : target;
+			results.push({ target, display });
+		}
+		return results;
+	}
+
+	private noteExists(target: string): boolean {
+		const name = target.split('#')[0];
+		return this.app.vault.getMarkdownFiles().some(
+			(f) => f.basename === name || f.path === name + '.md' || f.path.endsWith('/' + name + '.md'),
+		);
+	}
+
 	private syncManifestPreview(container: HTMLDivElement) {
 		const sub = container.querySelector('.export-modal__sub');
 		const preview = container.querySelector('.export-modal__preview-box');
 		if (!sub || !preview) return;
-		sub.textContent = 'Detected chapters: 0';
 		preview.empty();
+
 		if (!this.indexNotePath) {
+			sub.textContent = 'Detected chapters: 0';
 			preview.createEl('p', {
 				text: 'No index note selected.',
 				cls: 'export-modal__empty-state',
 			});
-		} else {
+			return;
+		}
+
+		const file = this.app.vault.getAbstractFileByPath(this.indexNotePath);
+		if (!(file instanceof TFile)) {
+			sub.textContent = 'Detected chapters: 0';
 			preview.createEl('p', {
-				text: this.indexNotePath,
+				text: 'File not found.',
 				cls: 'export-modal__empty-state',
 			});
+			return;
 		}
+
+		sub.textContent = 'Reading note...';
+
+		this.app.vault.read(file).then((content) => {
+			const links = this.parseWikilinks(content);
+			this.parsedWikilinks = links.map((l) => ({
+				...l,
+				exists: this.noteExists(l.target),
+			}));
+			const validCount = this.parsedWikilinks.filter((l) => l.exists).length;
+			const brokenCount = this.parsedWikilinks.length - validCount;
+			sub.textContent = `Detected chapters: ${this.parsedWikilinks.length}`;
+
+			preview.empty();
+
+			if (this.parsedWikilinks.length === 0) {
+				preview.createEl('p', {
+					text: 'No wikilinks found in this note.',
+					cls: 'export-modal__empty-state',
+				});
+				return;
+			}
+
+			const list = preview.createEl('ul', { cls: 'export-modal__note-list' });
+			this.parsedWikilinks.forEach((link) => {
+				const row = list.createEl('li', { cls: 'export-modal__note-row' });
+				row.createSpan({ text: link.display, cls: 'export-modal__note-path' });
+				if (!link.exists) {
+					row.createSpan({
+						text: 'Broken link',
+						cls: 'export-modal__error-badge',
+					});
+				}
+			});
+
+			if (brokenCount > 0) {
+				preview.createEl('p', {
+					text: `${brokenCount} broken link(s) detected.`,
+					cls: 'export-modal__empty-state',
+					attr: { style: 'color: var(--text-error); margin-top: 6px;' },
+				});
+			}
+		});
 	}
 
 	private buildManualContentsSection(container: HTMLDivElement) {
@@ -316,19 +391,34 @@ export class ExportVaultModal extends Modal {
 			li.createSpan({ cls: 'ti ti-grip-vertical export-modal__drag-handle' });
 			li.createSpan({ text: String(index + 1), cls: 'export-modal__note-number' });
 			li.createEl('code', { text: note, cls: 'export-modal__note-path' });
+			const removeBtn = li.createSpan({
+				text: '\u2715',
+				cls: 'export-modal__remove-btn',
+			});
+			removeBtn.addEventListener('click', () => {
+				this.selectedNotes.splice(index, 1);
+				this.renderSelectedNotes();
+			});
 
-			li.addEventListener('dragstart', (event) => {
-				event.dataTransfer?.setData('text/plain', String(index));
+			li.addEventListener('dragstart', () => {
+				this.dragIndex = index;
 			});
 			li.addEventListener('dragover', (event) => {
 				event.preventDefault();
-				const dragData = event.dataTransfer?.getData('text/plain');
-				const dragIndex = dragData ? parseInt(dragData, 10) : -1;
-				if (dragIndex < 0 || dragIndex === index) return;
-
-				const moved = this.selectedNotes.splice(dragIndex, 1)[0];
-				if (moved === undefined) return;
+				if (this.dragIndex < 0 || this.dragIndex === index) return;
+				li.style.borderTop = '2px solid var(--interactive-accent)';
+			});
+			li.addEventListener('dragleave', () => {
+				li.style.borderTop = '';
+			});
+			li.addEventListener('drop', (event) => {
+				event.preventDefault();
+				li.style.borderTop = '';
+				if (this.dragIndex < 0 || this.dragIndex === index) return;
+				const moved = this.selectedNotes.splice(this.dragIndex, 1)[0];
+				if (!moved) return;
 				this.selectedNotes.splice(index, 0, moved);
+				this.dragIndex = -1;
 				this.renderSelectedNotes();
 			});
 		});
