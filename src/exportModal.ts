@@ -428,12 +428,7 @@ export class ExportVaultModal extends Modal {
 	private buildStructurePanel(container: HTMLDivElement) {
 		this.buildPanelHeading(container, 'Structure');
 
-		const chapterRow = container.createDiv({ cls: 'export-modal__setting-row' });
-		chapterRow.createSpan({
-			text: 'Start a new chapter at each note',
-			cls: 'export-modal__label',
-		});
-		this.createToggle(chapterRow, true);
+		this.createToggleRow(container, 'Start a new chapter at each note', true);
 
 		this.buildHeadingMappingSection(container);
 		this.buildReferencesSection(container);
@@ -550,20 +545,10 @@ export class ExportVaultModal extends Modal {
 		const section = container.createDiv({ cls: 'export-modal__section' });
 		this.buildSectionHeading(section, 'Cover page');
 
-		const coverEnabledRow = section.createDiv({ cls: 'export-modal__setting-row' });
-		coverEnabledRow.createSpan({
-			text: 'Enable cover page',
-			cls: 'export-modal__label',
-		});
-		const coverToggle = this.createToggle(coverEnabledRow, true);
+		const coverToggle = this.createToggleRow(section, 'Enable cover page', true);
 
 		const coverFields = section.createDiv({ cls: 'export-modal__field-stack' });
-		const metadataRow = coverFields.createDiv({ cls: 'export-modal__setting-row' });
-		metadataRow.createSpan({
-			text: 'Use book metadata',
-			cls: 'export-modal__label',
-		});
-		this.createToggle(metadataRow, true);
+		this.createToggleRow(coverFields, 'Use book metadata', true);
 		this.createPathField(coverFields, 'Cover image', '', 'Select image', () => {
 			new Notice('Cover image selection is not implemented yet.');
 		});
@@ -579,9 +564,7 @@ export class ExportVaultModal extends Modal {
 		});
 		this.buildSectionHeading(section, 'Table of contents');
 
-		const tocEnabledRow = section.createDiv({ cls: 'export-modal__setting-row' });
-		tocEnabledRow.createSpan({ text: 'Enable TOC', cls: 'export-modal__label' });
-		const tocToggle = this.createToggle(tocEnabledRow, true);
+		const tocToggle = this.createToggleRow(section, 'Enable TOC', true);
 
 		const tocFields = section.createDiv({ cls: 'export-modal__grid' });
 		const depthField = tocFields.createDiv();
@@ -679,11 +662,13 @@ export class ExportVaultModal extends Modal {
 		row.createEl('button', { text: buttonText }).addEventListener('click', onBrowse);
 	}
 
-	private createToggle(container: HTMLElement, initialState: boolean): HTMLInputElement {
-		const label = container.createEl('label', { cls: 'tg export-modal-toggle' });
-		const input = label.createEl('input', { attr: { type: 'checkbox' } });
+	private createToggleRow(container: HTMLElement, label: string, initialState: boolean): HTMLInputElement {
+		const row = container.createDiv({ cls: 'export-modal__setting-row' });
+		row.createSpan({ text: label, cls: 'export-modal__field-label' });
+		const toggleLabel = row.createEl('label', { cls: 'tg export-modal-toggle' });
+		const input = toggleLabel.createEl('input', { attr: { type: 'checkbox' } });
 		input.checked = initialState;
-		label.createEl('i');
+		toggleLabel.createEl('i');
 		return input;
 	}
 }

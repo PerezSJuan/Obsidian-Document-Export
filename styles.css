@@ -47,7 +47,6 @@
     display: flex;
     flex: 1;
     min-height: 0;
-    gap: 0;
 }
 
 .export-modal__nav {
@@ -75,12 +74,10 @@
     border-radius: var(--radius-s);
     user-select: none;
 }
-
 .export-modal__nav-item:hover {
     color: var(--text-normal);
     background: var(--background-modifier-hover);
 }
-
 .export-modal__nav-item.active {
     color: var(--text-normal);
     font-weight: var(--font-semibold);
@@ -97,7 +94,6 @@
     color: var(--text-faint);
     flex-shrink: 0;
 }
-
 .export-modal__nav-item.active .export-modal__nav-icon {
     color: var(--interactive-accent);
 }
@@ -108,30 +104,44 @@
 
 .export-modal__panel {
     flex: 1;
-    padding: 18px 22px;
+    padding: 24px 24px;
     overflow-y: auto;
     min-width: 0;
     background: var(--background-primary);
+}
+
+.export-modal__setting-row {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    gap: 10px;
+}
+
+.export-modal-toggle {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
 }
 
 .export-modal__footer {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 8px;
-    padding: 10px 16px;
+    gap: 10px;
+    padding: 12px 20px;
     border-top: 1px solid var(--background-modifier-border);
     flex-shrink: 0;
 }
 
 .export-modal__panel-title {
-    margin: 0 0 16px;
+    margin: 0 0 20px;
     font-size: var(--font-ui-large);
     font-weight: var(--font-semibold);
 }
 
 .export-modal__section {
-    margin-top: 14px;
+    margin-top: 20px;
 }
 .export-modal__section:first-child {
     margin-top: 0;
@@ -139,11 +149,11 @@
 
 .export-modal__section--bordered {
     border-top: 1px solid var(--background-modifier-border);
-    padding-top: 14px;
+    padding-top: 18px;
 }
 
 .export-modal__section-title {
-    margin: 0 0 8px;
+    margin: 0 0 10px;
     font-size: var(--font-ui-medium);
     font-weight: var(--font-semibold);
 }
@@ -151,14 +161,14 @@
 .export-modal__sub {
     font-size: var(--font-ui-small);
     color: var(--text-muted);
-    margin: 0 0 8px;
+    margin: 0 0 10px;
 }
 
 .export-modal__radio-group {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin-bottom: 12px;
+    gap: 8px;
+    margin-bottom: 16px;
 }
 
 .export-modal__radio-option,
@@ -170,19 +180,19 @@
 }
 
 .export-modal__conditional-section {
-    margin-bottom: 12px;
+    margin-bottom: 16px;
 }
 
 .export-modal__field-stack {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
 }
 
 .export-modal__field {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
 }
 .export-modal__field input,
 .export-modal__field select {
@@ -214,14 +224,14 @@
 }
 
 .export-modal__small-button {
-    margin-top: 6px;
+    margin-top: 8px;
 }
 
 .export-modal__preview-box,
 .export-modal__structure-preview {
     min-height: 60px;
-    margin-top: 6px;
-    padding: 8px 10px;
+    margin-top: 8px;
+    padding: 10px 12px;
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--radius-s);
     background: var(--background-secondary);
@@ -236,21 +246,21 @@
 .export-modal__note-list {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 6px;
     list-style: none;
     margin: 0;
     padding: 0;
 }
 
 .export-modal__empty-list-item {
-    padding: 6px 0;
+    padding: 8px 0;
 }
 
 .export-modal__note-row {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 7px 10px;
+    padding: 8px 12px;
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--radius-s);
     background: var(--background-primary);
@@ -280,27 +290,13 @@
     flex: 1;
     min-width: 0;
 }
-    font-size: var(--font-ui-small);
-}
-
-.export-modal__setting-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    padding: 6px 0;
-}
-
-.export-modal__label {
-    font-size: var(--font-ui-medium);
-}
 
 .export-modal__mapping-row {
     display: grid;
     grid-template-columns: 32px 1fr;
     align-items: center;
-    gap: 8px;
-    padding: 3px 0;
+    gap: 10px;
+    padding: 5px 0;
 }
 
 .export-modal__mapping-level {
@@ -312,12 +308,12 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 2px 0;
+    padding: 3px 0;
 }
 
 .export-modal__badge {
     min-width: 78px;
-    padding: 2px 8px;
+    padding: 3px 8px;
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--radius-s);
     color: var(--text-muted);
@@ -331,7 +327,7 @@
 }
 
 .export-modal__format-block {
-    padding: 8px 0;
+    padding: 10px 0;
     border-top: 1px solid var(--background-modifier-border);
 }
 .export-modal__format-block:first-of-type {
@@ -340,7 +336,7 @@
 }
 
 .export-modal__nested-field {
-    margin-top: 6px;
+    margin-top: 8px;
     padding-left: 22px;
 }
 .export-modal__nested-field select {
@@ -356,13 +352,14 @@
 .export-modal__grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin: 8px 0 12px;
+    gap: 12px;
+    margin: 10px 0 16px;
 }
 
 .tg {
     position: relative;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     width: 36px;
     height: 20px;
     flex-shrink: 0;
@@ -418,9 +415,4 @@
 }
 .export-modal__remove-btn:hover {
     color: var(--text-error);
-}
-
-.export-modal-toggle {
-    cursor: pointer;
-    margin-left: auto;
 }
