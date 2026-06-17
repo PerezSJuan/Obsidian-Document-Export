@@ -1,77 +1,56 @@
 .export-modal {
-    min-height: 600px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-}
-
-.export-modal__dialog {
-    width: 600px;
-    max-width: 100%;
-    background: var(--background-primary);
-    border: 1px solid var(--background-modifier-border);
-    border-radius: var(--radius-l);
-    overflow: hidden;
     display: flex;
     flex-direction: column;
-}
-
-.export-modal__header,
-.export-modal__footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 16px 20px;
+    height: 600px;
 }
 
 .export-modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
     border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.export-modal__footer {
-    border-top: 1px solid var(--background-modifier-border);
+    flex-shrink: 0;
 }
 
 .export-modal__title {
     margin: 0;
-    font-size: 16px;
-    font-weight: 500;
-}
-
-.export-modal__subtitle {
-    margin: 2px 0 0;
-    font-size: 13px;
-    color: var(--text-muted);
+    font-size: var(--font-ui-medium);
+    font-weight: var(--font-semibold);
 }
 
 .export-modal__close {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     border: none;
     background: transparent;
-    color: var(--text-normal);
+    color: var(--text-muted);
     cursor: pointer;
+    border-radius: var(--radius-s);
+}
+.export-modal__close:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
 }
 
 .export-modal__body {
     display: flex;
-    min-width: 0;
+    flex: 1;
+    min-height: 0;
 }
 
 .export-modal__nav {
-    width: 168px;
+    width: 140px;
     flex-shrink: 0;
     border-right: 1px solid var(--background-modifier-border);
-    padding: 12px 8px;
+    padding: 8px 4px;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
 }
 
 .export-modal__nav-btn {
@@ -82,121 +61,312 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 12px;
+    padding: 6px 10px;
     border-radius: var(--radius-s);
-    font-size: 14px;
+    font-size: var(--font-ui-small);
     color: var(--text-muted);
     cursor: pointer;
 }
-
-.export-modal__nav-btn.active,
 .export-modal__nav-btn:hover {
-    background: var(--background-secondary);
-}
-
-.export-modal__nav-btn.active {
+    background: var(--background-modifier-hover);
     color: var(--text-normal);
-    font-weight: 500;
+}
+.export-modal__nav-btn.active {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+    font-weight: var(--font-semibold);
 }
 
 .export-modal__panel {
     flex: 1;
-    padding: 18px 20px;
+    padding: 16px 20px;
+    overflow-y: auto;
     min-width: 0;
 }
 
-.export-modal__row {
+.export-modal__footer {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 0;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--background-modifier-border);
+    flex-shrink: 0;
 }
 
-.export-modal__divider {
-    border-bottom: 1px solid var(--background-modifier-border);
-    padding-bottom: 10px;
-    margin-bottom: 10px;
+.export-modal__panel-title {
+    margin: 0 0 16px;
+    font-size: var(--font-ui-medium);
+    font-weight: var(--font-semibold);
 }
 
-.export-modal__small-row {
-    padding: 4px 0;
+.export-modal__section {
+    margin-top: 14px;
+}
+.export-modal__section:first-child {
+    margin-top: 0;
 }
 
-.export-modal__label {
-    font-size: 14px;
+.export-modal__section--bordered {
+    border-top: 1px solid var(--background-modifier-border);
+    padding-top: 14px;
+}
+
+.export-modal__section-title {
+    margin: 0 0 8px;
+    font-size: var(--font-ui-small);
+    font-weight: var(--font-semibold);
 }
 
 .export-modal__sub {
-    font-size: 12px;
+    font-size: var(--font-ui-smaller);
     color: var(--text-muted);
-    margin: 2px 0 4px;
+    margin: 0 0 8px;
 }
 
-.export-modal__note {
-    font-size: 12px;
-    color: var(--text-faint);
-    width: 16px;
+.export-modal__radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
 }
 
-.export-modal__item {
+.export-modal__radio-option,
+.export-modal__checkbox-row {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 10px;
-    background: var(--background-secondary);
-    border-radius: var(--radius-s);
-    cursor: grab;
+    font-size: var(--font-ui-small);
 }
 
-.export-modal__item:hover {
-    background: var(--background-secondary-alt);
+.export-modal__conditional-section {
+    margin-bottom: 12px;
 }
 
-.export-modal__panel-section {
+.export-modal__field-stack {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 
-.export-modal__card {
-    background: var(--background-secondary);
+.export-modal__field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.export-modal__field input,
+.export-modal__field select {
+    width: 100%;
+}
+
+.export-modal__field-label {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+}
+
+.export-modal__inline-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.export-modal__select-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.export-modal__select-caret {
+    color: var(--text-muted);
+    font-size: 9px;
+}
+
+.export-modal__small-button {
+    margin-top: 6px;
+}
+
+.export-modal__preview-box,
+.export-modal__structure-preview {
+    min-height: 60px;
+    margin-top: 6px;
+    padding: 8px 10px;
+    border: 1px solid var(--background-modifier-border);
     border-radius: var(--radius-s);
-    padding: 12px;
+    background: var(--background-secondary);
+}
+
+.export-modal__empty-state {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--font-ui-small);
+}
+
+.export-modal__note-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.export-modal__empty-list-item {
+    padding: 6px 0;
+}
+
+.export-modal__note-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s);
+    background: var(--background-primary);
+    cursor: grab;
+}
+.export-modal__note-row:hover {
+    background: var(--background-secondary);
+}
+
+.export-modal__drag-handle {
+    color: var(--text-faint);
+    flex-shrink: 0;
+}
+
+.export-modal__note-number {
+    width: 14px;
+    font-size: var(--font-ui-smaller);
+    color: var(--text-faint);
+    flex-shrink: 0;
+    text-align: right;
+}
+
+.export-modal__note-path {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-ui-smaller);
+}
+
+.export-modal__setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 6px 0;
+}
+
+.export-modal__label {
+    font-size: var(--font-ui-small);
+}
+
+.export-modal__mapping-row {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 0;
+}
+
+.export-modal__mapping-level {
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+}
+
+.export-modal__preview-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+}
+
+.export-modal__badge {
+    min-width: 70px;
+    padding: 1px 6px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s);
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+    line-height: 1.5;
+    text-align: center;
+}
+
+.export-modal__preview-text {
+    font-size: var(--font-ui-small);
+}
+
+.export-modal__format-block {
+    padding: 8px 0;
+    border-top: 1px solid var(--background-modifier-border);
+}
+.export-modal__format-block:first-of-type {
+    border-top: none;
+    padding-top: 0;
+}
+
+.export-modal__nested-field {
+    margin-top: 6px;
+    padding-left: 22px;
+}
+.export-modal__nested-field select {
+    width: 100%;
+}
+
+.export-modal__path-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
 }
 
 .export-modal__grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
-    margin: 10px 0 14px;
+    margin: 8px 0 12px;
 }
 
-.export-modal__input,
-.export-modal__select {
-    width: 100%;
-    min-width: 0;
-    padding: 7px 10px;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: var(--radius-s);
-    background: var(--background-secondary);
-    color: var(--text-normal);
+.tg {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    flex-shrink: 0;
 }
-
-.export-modal__button {
-    border: 1px solid var(--background-modifier-border);
-    border-radius: var(--radius-s);
-    padding: 0 14px;
-    min-height: 32px;
-    background: transparent;
-    color: var(--text-normal);
+.tg input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+.tg i {
+    position: absolute;
+    inset: 0;
+    background: var(--background-modifier-border);
+    border: 0.5px solid var(--background-modifier-border);
+    border-radius: 999px;
+    transition: 0.15s;
     cursor: pointer;
 }
-
-.export-modal__button--primary {
+.tg i::before {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    left: 2px;
+    top: 2px;
+    background: var(--background-primary);
+    border-radius: 50%;
+    transition: 0.15s;
+    box-shadow: 0 0 0 0.5px var(--background-modifier-border);
+}
+.tg input:checked + i {
     background: var(--interactive-accent);
-    border-color: transparent;
-    color: var(--text-on-accent);
+    border-color: var(--interactive-accent);
+}
+.tg input:checked + i::before {
+    transform: translateX(16px);
 }
 
 .export-modal-toggle {
