@@ -10,6 +10,44 @@ interface HeadingMappingOption {
 	label: string;
 }
 
+interface ExportConfig {
+	source: {
+		mode: ContentMode;
+		indexNotePath: string;
+		selectedNotes: string[];
+		metadata: {
+			title: string;
+			subtitle: string;
+			author: string;
+		};
+	};
+	structure: {
+		newChapterPerNote: boolean;
+		headingMapping: Record<string, HeadingMapping>;
+		wikilinkMode: string;
+		tagMode: string;
+		noteNameMode: string;
+	};
+	frontMatter: {
+		enableCoverPage: boolean;
+		useBookMetadata: boolean;
+		coverImagePath: string;
+		toc: {
+			enabled: boolean;
+			depth: number;
+			title: string;
+		};
+	};
+	output: {
+		formats: {
+			pdf: boolean;
+			docx: boolean;
+			latex: boolean;
+		};
+		savePath: string;
+	};
+}
+
 export class ExportVaultModal extends Modal {
 	private currentPanel: PanelId = 'source';
 	private contentMode: ContentMode = 'manual';
@@ -36,6 +74,13 @@ export class ExportVaultModal extends Modal {
 	private parsedWikilinks: { target: string; display: string; exists: boolean }[] = [];
 	private coverImagePath = '';
 	private savePath = '';
+	private newChapterPerNote = true;
+	private enableCoverPage = true;
+	private useBookMetadata = true;
+	private enableToc = true;
+	private tocDepth = 2;
+	private tocTitle = 'Contents';
+	private formats = { pdf: true, docx: false, latex: false };
 
 	constructor(app: App) {
 		super(app);
@@ -141,7 +186,7 @@ export class ExportVaultModal extends Modal {
 			cls: 'mod-cta',
 		});
 		exportBtn.addEventListener('click', () => {
-			throw new Error('Not implemented');
+			console.log('Export config:', JSON.stringify(this.getConfig(), null, 2));
 		});
 	}
 
@@ -432,7 +477,10 @@ export class ExportVaultModal extends Modal {
 	private buildStructurePanel(container: HTMLDivElement) {
 		this.buildPanelHeading(container, 'Structure');
 
-		this.createToggleRow(container, 'Start a new chapter at each note', true);
+		const newChapterToggle = this.createToggleRow(container, 'Start a new chapter at each note', true);
+		newChapterToggle.addEventListener('change', () => {
+			this.newChapterPerNote = newChapterToggle.checked;
+		});
 
 		this.buildHeadingMappingSection(container);
 		this.buildReferencesSection(container);
@@ -550,9 +598,15 @@ export class ExportVaultModal extends Modal {
 		this.buildSectionHeading(section, 'Cover page');
 
 		const coverToggle = this.createToggleRow(section, 'Enable cover page', true);
+		coverToggle.addEventListener('change', () => {
+			this.enableCoverPage = coverToggle.checked;
+			coverFields.style.display = coverToggle.checked ? 'flex' : 'none';
+		});
 
 		const coverFields = section.createDiv({ cls: 'export-modal__field-stack' });
-		this.createToggleRow(coverFields, 'Use book metadata', true);
+		this.createToggleRow(coverFields, 'Use book metadata', true).addEventListener('change', (e) => {
+			this.useBookMetadata = (e.target as HTMLInputElement).checked;
+		});
 		this.createPathField(coverFields, 'Cover image', this.coverImagePath, 'Select image', (display) => {
 			const fileInput = document.createElement('input');
 			fileInput.type = 'file';
@@ -569,10 +623,6 @@ export class ExportVaultModal extends Modal {
 			});
 			fileInput.click();
 		});
-
-		coverToggle.addEventListener('change', () => {
-			coverFields.style.display = coverToggle.checked ? 'flex' : 'none';
-		});
 	}
 
 	private buildTableOfContentsSection(container: HTMLDivElement) {
@@ -582,6 +632,10 @@ export class ExportVaultModal extends Modal {
 		this.buildSectionHeading(section, 'Table of contents');
 
 		const tocToggle = this.createToggleRow(section, 'Enable TOC', true);
+		tocToggle.addEventListener('change', () => {
+			this.enableToc = tocToggle.checked;
+			tocFields.style.display = tocToggle.checked ? 'grid' : 'none';
+		});
 
 		const tocFields = section.createDiv({ cls: 'export-modal__grid' });
 		const depthField = tocFields.createDiv();
@@ -590,11 +644,13 @@ export class ExportVaultModal extends Modal {
 		[1, 2, 3, 4].forEach((depth) => {
 			depthSelect.createEl('option', { value: String(depth), text: String(depth) });
 		});
-		depthSelect.value = '2';
+		depthSelect.value = String(this.tocDepth);
+		depthSelect.addEventListener('change', () => {
+			this.tocDepth = Number(depthSelect.value);
+		});
 
-		this.createTextField(tocFields, 'Title', 'Contents');
-		tocToggle.addEventListener('change', () => {
-			tocFields.style.display = tocToggle.checked ? 'grid' : 'none';
+		this.createTextField(tocFields, 'Title', this.tocTitle, (value) => {
+			this.tocTitle = value;
 		});
 	}
 
@@ -609,15 +665,18 @@ export class ExportVaultModal extends Modal {
 		const section = container.createDiv({ cls: 'export-modal__section' });
 		this.buildSectionHeading(section, 'Formats');
 
-		const formats = [
-			{ id: 'fmtPdf', label: 'PDF', checked: true },
-			{ id: 'fmtDocx', label: 'DOCX', checked: false },
-			{ id: 'fmtLatex', label: 'LaTeX source', checked: false },
+		const formatDefs = [
+			{ key: 'pdf' as const, label: 'PDF' },
+			{ key: 'docx' as const, label: 'DOCX' },
+			{ key: 'latex' as const, label: 'LaTeX source' },
 		];
-		formats.forEach((f) => {
+		formatDefs.forEach((f) => {
 			const row = section.createEl('label', { cls: 'export-modal__checkbox-row' });
-			const cb = row.createEl('input', { attr: { type: 'checkbox', id: f.id } });
-			cb.checked = f.checked;
+			const cb = row.createEl('input', { attr: { type: 'checkbox' } });
+			cb.checked = this.formats[f.key];
+			cb.addEventListener('change', () => {
+				this.formats[f.key] = cb.checked;
+			});
 			row.createSpan({ text: f.label });
 		});
 	}
@@ -677,6 +736,38 @@ export class ExportVaultModal extends Modal {
 
 	private buildFieldLabel(container: HTMLElement, label: string) {
 		container.createEl('p', { text: label, cls: 'export-modal__field-label' });
+	}
+
+	getConfig(): ExportConfig {
+		return {
+			source: {
+				mode: this.contentMode,
+				indexNotePath: this.indexNotePath,
+				selectedNotes: [...this.selectedNotes],
+				metadata: { ...this.detectedMetadata },
+			},
+			structure: {
+				newChapterPerNote: this.newChapterPerNote,
+				headingMapping: { ...this.headingMapping },
+				wikilinkMode: this.wikilinkMode,
+				tagMode: this.tagMode,
+				noteNameMode: this.noteNameMode,
+			},
+			frontMatter: {
+				enableCoverPage: this.enableCoverPage,
+				useBookMetadata: this.useBookMetadata,
+				coverImagePath: this.coverImagePath,
+				toc: {
+					enabled: this.enableToc,
+					depth: this.tocDepth,
+					title: this.tocTitle,
+				},
+			},
+			output: {
+				formats: { ...this.formats },
+				savePath: this.savePath,
+			},
+		};
 	}
 
 	private createTextField(
