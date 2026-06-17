@@ -349,6 +349,16 @@
     gap: 8px;
 }
 
+.export-modal__path-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-ui-small);
+    color: var(--text-muted);
+    padding: 4px 0;
+    align-self: center;
+}
+
 .export-modal__grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
