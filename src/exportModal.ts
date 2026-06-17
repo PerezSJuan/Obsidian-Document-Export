@@ -1,4 +1,4 @@
-import { App, Modal, Notice, TFile } from 'obsidian';
+import { App, Modal, TFile } from 'obsidian';
 import { NoteSuggestModal } from './noteSuggestModal.js';
 
 type PanelId = 'source' | 'structure' | 'front' | 'output';
@@ -34,9 +34,13 @@ export class ExportVaultModal extends Modal {
 	private indexNotePath = '';
 	private dragIndex = -1;
 	private parsedWikilinks: { target: string; display: string; exists: boolean }[] = [];
+	private coverImagePath = '';
+	private savePath = '';
 
 	constructor(app: App) {
 		super(app);
+		const basePath = (app.vault.adapter as any).getBasePath?.();
+		this.savePath = basePath || '';
 	}
 
 	onOpen() {
@@ -549,8 +553,21 @@ export class ExportVaultModal extends Modal {
 
 		const coverFields = section.createDiv({ cls: 'export-modal__field-stack' });
 		this.createToggleRow(coverFields, 'Use book metadata', true);
-		this.createPathField(coverFields, 'Cover image', '', 'Select image', () => {
-			new Notice('Cover image selection is not implemented yet.');
+		this.createPathField(coverFields, 'Cover image', this.coverImagePath, 'Select image', (display) => {
+			const fileInput = document.createElement('input');
+			fileInput.type = 'file';
+			fileInput.accept = 'image/*';
+			fileInput.style.display = 'none';
+			document.body.appendChild(fileInput);
+			fileInput.addEventListener('change', () => {
+				document.body.removeChild(fileInput);
+				if (!fileInput.files?.length) return;
+				const file = fileInput.files[0];
+				if (!file) return;
+				this.coverImagePath = file.name;
+				display.textContent = file.name;
+			});
+			fileInput.click();
 		});
 
 		coverToggle.addEventListener('change', () => {
@@ -610,8 +627,40 @@ export class ExportVaultModal extends Modal {
 			cls: 'export-modal__section export-modal__section--bordered',
 		});
 		this.buildSectionHeading(section, 'Save path');
-		this.createPathField(section, 'Save to', './book', 'Browse', () => {
-			new Notice('Save path selection is not implemented yet.');
+		this.createPathField(section, 'Save to', this.savePath, 'Browse', async (display) => {
+			try {
+				const electron = (window as any).require('electron');
+				const dialog = electron.remote?.dialog || electron.dialog;
+				if (dialog?.showOpenDialog) {
+					const result = await dialog.showOpenDialog({
+						properties: ['openDirectory'],
+					});
+					if (result.canceled || !result.filePaths.length) return;
+					const dir = result.filePaths[0];
+					this.savePath = dir;
+					display.textContent = dir;
+					return;
+				}
+			} catch {}
+			try {
+				const fileInput = document.createElement('input');
+				fileInput.type = 'file';
+				fileInput.setAttribute('webkitdirectory', '');
+				fileInput.style.display = 'none';
+				document.body.appendChild(fileInput);
+				fileInput.addEventListener('change', () => {
+					document.body.removeChild(fileInput);
+					if (!fileInput.files?.length) return;
+					const file = fileInput.files[0];
+					if (!file) return;
+					const path = (file as any).path || file.webkitRelativePath;
+					if (!path) return;
+					const dir = path.substring(0, path.lastIndexOf('/'));
+					this.savePath = dir;
+					display.textContent = dir;
+				});
+				fileInput.click();
+			} catch {}
 		});
 	}
 
@@ -651,15 +700,16 @@ export class ExportVaultModal extends Modal {
 		label: string,
 		value: string,
 		buttonText: string,
-		onBrowse: () => void,
+		onBrowse: (displayEl: HTMLElement) => void,
 	) {
 		const field = container.createDiv({ cls: 'export-modal__field' });
 		this.buildFieldLabel(field, label);
 		const row = field.createDiv({ cls: 'export-modal__path-row' });
-		row.createEl('input', {
-			attr: { type: 'text', value },
+		const display = row.createEl('span', {
+			text: value || '(not set)',
+			cls: 'export-modal__path-text',
 		});
-		row.createEl('button', { text: buttonText }).addEventListener('click', onBrowse);
+		row.createEl('button', { text: buttonText }).addEventListener('click', () => onBrowse(display));
 	}
 
 	private createToggleRow(container: HTMLElement, label: string, initialState: boolean): HTMLInputElement {
