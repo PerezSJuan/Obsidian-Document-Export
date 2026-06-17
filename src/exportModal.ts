@@ -2,7 +2,7 @@ import { App, Modal, Notice } from 'obsidian';
 
 type PanelId = 'source' | 'structure' | 'front' | 'output';
 type ContentMode = 'manifest' | 'manual';
-type HeadingMapping = 'part' | 'chapter' | 'section' | 'subsection' | 'inline';
+type HeadingMapping = 'part' | 'chapter' | 'section' | 'subsection' | 'inline' | 'paragraph' | 'bold' | 'italic';
 
 interface HeadingMappingOption {
 	value: HeadingMapping;
@@ -25,9 +25,10 @@ export class ExportVaultModal extends Modal {
 		lvl4: 'inline',
 	};
 	private manualNotesListEl?: HTMLUListElement;
-	private structurePreviewEl?: HTMLDivElement;
 	private manifestSectionEl?: HTMLDivElement;
 	private manualSectionEl?: HTMLDivElement;
+	private wikilinkMode = 'resolve';
+	private tagMode = 'keep';
 
 	constructor(app: App) {
 		super(app);
@@ -315,7 +316,7 @@ export class ExportVaultModal extends Modal {
 		this.createToggle(chapterRow, true);
 
 		this.buildHeadingMappingSection(container);
-		this.buildStructurePreview(container);
+		this.buildReferencesSection(container);
 	}
 
 	private buildHeadingMappingSection(container: HTMLDivElement) {
@@ -349,42 +350,45 @@ export class ExportVaultModal extends Modal {
 			select.value = this.headingMapping[level.id] ?? 'inline';
 			select.addEventListener('change', () => {
 				this.headingMapping[level.id] = select.value as HeadingMapping;
-				this.updateStructurePreview();
 			});
 		});
 	}
 
-	private buildStructurePreview(container: HTMLDivElement) {
+	private buildReferencesSection(container: HTMLDivElement) {
 		const section = container.createDiv({
 			cls: 'export-modal__section export-modal__section--bordered',
 		});
-		this.buildSectionHeading(section, 'Preview');
-		this.structurePreviewEl = section.createDiv({ cls: 'export-modal__structure-preview' });
-		this.updateStructurePreview();
-	}
+		this.buildSectionHeading(section, 'References & tags');
 
-	private updateStructurePreview() {
-		if (!this.structurePreviewEl) return;
-		this.structurePreviewEl.empty();
+		const fields = section.createDiv({ cls: 'export-modal__field-stack' });
+		const wikilinkField = fields.createDiv({ cls: 'export-modal__field' });
+		this.buildFieldLabel(wikilinkField, 'Wikilinks [[Note]]');
+		const wikilinkSelect = wikilinkField.createEl('select');
+		[
+			{ value: 'resolve', label: 'Resolve to note title' },
+			{ value: 'raw', label: 'Keep as raw text' },
+			{ value: 'strip', label: 'Strip references' },
+		].forEach((opt) => {
+			wikilinkSelect.createEl('option', { value: opt.value, text: opt.label });
+		});
+		wikilinkSelect.value = this.wikilinkMode;
+		wikilinkSelect.addEventListener('change', () => {
+			this.wikilinkMode = wikilinkSelect.value;
+		});
 
-		const sample = [
-			{ level: 1, text: 'Getting started' },
-			{ level: 2, text: 'Installation' },
-			{ level: 2, text: 'Configuration' },
-			{ level: 3, text: 'Advanced options' },
-		];
-
-		sample.forEach((heading) => {
-			const mapping = this.headingMapping[`lvl${heading.level}`];
-			const option = this.getHeadingMappingOptions().find((item) => item.value === mapping);
-			if (!option) return;
-
-			const row = this.structurePreviewEl!.createDiv({
-				cls: 'export-modal__preview-row',
-			});
-			row.style.marginLeft = `${(heading.level - 1) * 14}px`;
-			row.createSpan({ text: option.label, cls: 'export-modal__badge' });
-			row.createSpan({ text: heading.text, cls: 'export-modal__preview-text' });
+		const tagField = fields.createDiv({ cls: 'export-modal__field' });
+		this.buildFieldLabel(tagField, 'Tags #tag');
+		const tagSelect = tagField.createEl('select');
+		[
+			{ value: 'keep', label: 'Keep as text' },
+			{ value: 'bold', label: 'Convert to bold' },
+			{ value: 'strip', label: 'Strip tags' },
+		].forEach((opt) => {
+			tagSelect.createEl('option', { value: opt.value, text: opt.label });
+		});
+		tagSelect.value = this.tagMode;
+		tagSelect.addEventListener('change', () => {
+			this.tagMode = tagSelect.value;
 		});
 	}
 
@@ -395,6 +399,9 @@ export class ExportVaultModal extends Modal {
 			{ value: 'section', label: 'Section' },
 			{ value: 'subsection', label: 'Subsection' },
 			{ value: 'inline', label: 'Keep inline' },
+			{ value: 'paragraph', label: 'Paragraph' },
+			{ value: 'bold', label: 'Bold text' },
+			{ value: 'italic', label: 'Italic' },
 		];
 	}
 
