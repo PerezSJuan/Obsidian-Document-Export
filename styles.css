@@ -424,5 +424,25 @@
     line-height: 1;
 }
 .export-modal__remove-btn:hover {
-    color: var(--text-error);
+	color: var(--text-error);
+}
+
+.export-modal--fullscreen {
+	width: 92vw;
+	max-width: 92vw;
+	height: 90vh;
+	max-height: 90vh;
+}
+
+.export-modal__hidden-input {
+	display: none !important;
+}
+
+.export-modal__note-row.is-drag-over {
+	border-top: 2px solid var(--interactive-accent);
+}
+
+.export-modal__field-stack.is-hidden,
+.export-modal__grid.is-hidden {
+	display: none;
 }

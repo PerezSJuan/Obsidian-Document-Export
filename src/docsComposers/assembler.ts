@@ -1,7 +1,5 @@
 import { type NormalizedNote, type ExportConfig, type HeadingMapping } from '../types.js'
 
-const headingLevels = ['lvl1', 'lvl2', 'lvl3', 'lvl4', 'lvl5', 'lvl6']
-
 export function assemble(
   notes: NormalizedNote[],
   config: ExportConfig,
@@ -13,21 +11,20 @@ export function assemble(
 
 function buildFrontmatter(config: ExportConfig): string {
   const lines: string[] = []
-  const meta = config.source.metadata
 
-  if (meta.title) {
-    lines.push(`title: ${formatYamlValue(meta.title)}`)
+  if (config.source.metadata.title) {
+    lines.push(`title: ${formatYamlValue(config.source.metadata.title)}`)
   }
-  if (meta.subtitle) {
-    lines.push(`subtitle: ${formatYamlValue(meta.subtitle)}`)
+  if (config.source.metadata.subtitle) {
+    lines.push(`subtitle: ${formatYamlValue(config.source.metadata.subtitle)}`)
   }
-  if (meta.author) {
-    lines.push(`author: ${formatYamlValue(meta.author)}`)
+  if (config.source.metadata.author) {
+    lines.push(`author: ${formatYamlValue(config.source.metadata.author)}`)
   }
   if (config.frontMatter.coverImagePath) {
     lines.push(`cover-image: ${formatYamlValue(config.frontMatter.coverImagePath)}`)
   }
-  if (config.frontMatter.toc.enabled && config.frontMatter.toc.depth > 0) {
+  if (config.frontMatter.toc.enabled) {
     lines.push(`toc: true`)
     lines.push(`toc-depth: ${config.frontMatter.toc.depth}`)
     if (config.frontMatter.toc.title) {
@@ -61,17 +58,14 @@ function buildBody(
 function computeHeadingOffset(
   headingMapping: Record<string, HeadingMapping>,
 ): number {
-  for (let i = 0; i < headingLevels.length; i++) {
-    const role = headingMapping[headingLevels[i]!]
-    if (role && !isInlineRole(role)) {
+  const levelKeys = ['lvl1', 'lvl2', 'lvl3', 'lvl4', 'lvl5', 'lvl6']
+  for (let i = 0; i < levelKeys.length; i++) {
+    const role = headingMapping[levelKeys[i]!]
+    if (role && role !== 'paragraph' && role !== 'bold' && role !== 'italic') {
       return i
     }
   }
   return 0
-}
-
-function isInlineRole(role: HeadingMapping): boolean {
-  return role === 'paragraph' || role === 'bold' || role === 'italic' || role === 'inline'
 }
 
 function shiftHeadings(content: string, offset: number): string {
@@ -90,5 +84,3 @@ function formatYamlValue(value: string): string {
   const escaped = value.replace(/"/g, '\\"')
   return `"${escaped}"`
 }
-
-export { computeHeadingOffset, shiftHeadings }

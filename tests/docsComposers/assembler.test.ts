@@ -15,21 +15,26 @@ const defaultConfig: ExportConfig = {
     metadata: { title: 'Mi Libro', subtitle: '', author: '' },
   },
   structure: {
-    newChapterPerNote: true,
+    newChapterPerNote: false,
     headingMapping: {},
     wikilinkMode: 'resolve',
     tagMode: 'keep',
     noteNameMode: 'none',
   },
   frontMatter: {
-    enableCoverPage: true,
-    useBookMetadata: true,
+    enableCoverPage: false,
+    useBookMetadata: false,
     coverImagePath: '',
     toc: { enabled: false, depth: 0, title: 'Índice' },
   },
   output: {
     formats: { pdf: true, docx: false, latex: false },
     savePath: '/output',
+  },
+  formatting: {
+    font: 'times-new-roman',
+    baseFontSize: 11,
+    pageNumbers: { enabled: false, position: 'bottom-center' },
   },
 }
 
@@ -41,65 +46,44 @@ describe('assemble', () => {
     })
 
     it('includes subtitle when present', () => {
-      const config = {
-        ...defaultConfig,
-        source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, subtitle: 'Una aventura' } },
-      }
+      const config = { ...defaultConfig, source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, subtitle: 'Una aventura' } } }
       const result = assemble([note('# C1')], config)
       expect(result).toMatch(/subtitle: Una aventura/)
     })
 
     it('includes author when present', () => {
-      const config = {
-        ...defaultConfig,
-        source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, author: 'Juan Pérez' } },
-      }
+      const config = { ...defaultConfig, source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, author: 'Juan Pérez' } } }
       const result = assemble([note('# C1')], config)
       expect(result).toMatch(/author: "Juan Pérez"/)
     })
 
     it('includes cover image when present', () => {
-      const config = {
-        ...defaultConfig,
-        frontMatter: { ...defaultConfig.frontMatter, coverImagePath: 'portada.png' },
-      }
+      const config = { ...defaultConfig, frontMatter: { ...defaultConfig.frontMatter, coverImagePath: 'portada.png' } }
       const result = assemble([note('# C1')], config)
       expect(result).toMatch(/cover-image: portada\.png/)
     })
 
     it('includes toc config when enabled', () => {
-      const config = {
-        ...defaultConfig,
-        frontMatter: {
-          ...defaultConfig.frontMatter,
-          toc: { enabled: true, depth: 3, title: 'Table of Contents' },
-        },
-      }
+      const config = { ...defaultConfig, frontMatter: { ...defaultConfig.frontMatter, toc: { enabled: true, depth: 3, title: 'Table of Contents' } } }
       const result = assemble([note('# C1')], config)
       expect(result).toMatch(/toc: true/)
       expect(result).toMatch(/toc-depth: 3/)
       expect(result).toMatch(/toc-title: Table of Contents/)
     })
 
-    it('omits toc when not enabled', () => {
+    it('omits toc when disabled', () => {
       const result = assemble([note('# C1')], defaultConfig)
       expect(result).not.toMatch(/toc:/)
     })
 
     it('wraps YAML value in quotes when it contains special characters', () => {
-      const config = {
-        ...defaultConfig,
-        source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, title: 'Mi "Gran" Libro' } },
-      }
+      const config = { ...defaultConfig, source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, title: 'Mi "Gran" Libro' } } }
       const result = assemble([note('# C1')], config)
       expect(result).toMatch(/title: "Mi \\"Gran\\" Libro"/)
     })
 
     it('wraps YAML value in quotes when it starts with a number', () => {
-      const config = {
-        ...defaultConfig,
-        source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, title: '2024 Report' } },
-      }
+      const config = { ...defaultConfig, source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, title: '2024 Report' } } }
       const result = assemble([note('# C1')], config)
       expect(result).toMatch(/title: "2024 Report"/)
     })
@@ -110,30 +94,20 @@ describe('assemble', () => {
     })
 
     it('produces valid frontmatter even when title is empty', () => {
-      const config = {
-        ...defaultConfig,
-        source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, title: '' } },
-      }
+      const config = { ...defaultConfig, source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, title: '' } } }
       const result = assemble([note('Body')], config)
       expect(result).toMatch(/^---\n---/)
     })
 
     it('produces valid frontmatter when only toc is configured without cover', () => {
-      const config = {
-        ...defaultConfig,
-        source: { ...defaultConfig.source, metadata: { title: '', subtitle: '', author: '' } },
-        frontMatter: { ...defaultConfig.frontMatter, toc: { enabled: true, depth: 2, title: 'Index' } },
-      }
+      const config = { ...defaultConfig, source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, title: '' } }, frontMatter: { ...defaultConfig.frontMatter, toc: { enabled: true, depth: 2, title: 'Index' } } }
       const result = assemble([note('Body')], config)
       expect(result).toMatch(/toc: true/)
       expect(result).toMatch(/toc-depth: 2/)
     })
 
     it('skips empty optional fields', () => {
-      const config = {
-        ...defaultConfig,
-        source: { ...defaultConfig.source, metadata: { title: 'T', subtitle: '', author: '' } },
-      }
+      const config = { ...defaultConfig, source: { ...defaultConfig.source, metadata: { title: 'T', subtitle: '', author: '' } } }
       const result = assemble([note('Body')], config)
       expect(result).toMatch(/^---\ntitle: T\n---/)
       expect(result).not.toMatch(/subtitle:/)
@@ -141,28 +115,19 @@ describe('assemble', () => {
     })
 
     it('quotes YAML values containing colon', () => {
-      const config = {
-        ...defaultConfig,
-        source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, title: 'Capítulo 1: Introducción' } },
-      }
+      const config = { ...defaultConfig, source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, title: 'Capítulo 1: Introducción' } } }
       const result = assemble([note('Body')], config)
       expect(result).toMatch(/title: "Capítulo 1: Introducción"/)
     })
 
     it('quotes YAML values that are boolean-like words', () => {
-      const config = {
-        ...defaultConfig,
-        source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, title: 'yes' } },
-      }
+      const config = { ...defaultConfig, source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, title: 'yes' } } }
       const result = assemble([note('Body')], config)
       expect(result).toMatch(/title: "yes"/)
     })
 
     it('does not quote simple YAML values', () => {
-      const config = {
-        ...defaultConfig,
-        source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, title: 'Mi Libro' } },
-      }
+      const config = { ...defaultConfig, source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, title: 'Mi Libro' } } }
       const result = assemble([note('Body')], config)
       expect(result).toMatch(/title: Mi Libro/)
     })
@@ -280,7 +245,7 @@ describe('assemble', () => {
   })
 
   describe('heading offset', () => {
-    it('shifts headings up when first structural role is lvl2', () => {
+    it('shifts headings up when first mapping is lvl2', () => {
       const config = {
         ...defaultConfig,
         structure: { ...defaultConfig.structure, headingMapping: { lvl2: 'chapter' } as const },
@@ -290,7 +255,7 @@ describe('assemble', () => {
       expect(result).toContain('### Sección')
     })
 
-    it('shifts headings when first structural role is lvl3', () => {
+    it('shifts headings when first mapping is lvl3', () => {
       const config = {
         ...defaultConfig,
         structure: { ...defaultConfig.structure, headingMapping: { lvl3: 'subsection' } as const },
@@ -301,7 +266,7 @@ describe('assemble', () => {
       expect(result).toContain('##### C')
     })
 
-    it('does not shift when first structural role is lvl1', () => {
+    it('does not shift when first mapping is lvl1', () => {
       const config = {
         ...defaultConfig,
         structure: { ...defaultConfig.structure, headingMapping: { lvl1: 'chapter' } as const },
@@ -319,14 +284,14 @@ describe('assemble', () => {
     it('caps heading level at 6', () => {
       const config = {
         ...defaultConfig,
-        structure: { ...defaultConfig.structure, headingMapping: { lvl5: 'section' } as const },
+        structure: { ...defaultConfig.structure, headingMapping: { lvl5: 'part' } as const },
       }
       const result = assemble([note('###### h6\n\n####### not-h7')], config)
       expect(result).toContain('###### h6')
       expect(result).not.toContain('#######')
     })
 
-    it('ignores inline/paragraph/bold/italic roles when computing offset', () => {
+    it('ignores paragraph/bold/italic roles when computing offset', () => {
       const config = {
         ...defaultConfig,
         structure: { ...defaultConfig.structure, headingMapping: { lvl1: 'paragraph', lvl2: 'chapter' } as const },
@@ -346,7 +311,7 @@ describe('assemble', () => {
       expect(result).toContain('## Título')
     })
 
-    it('shifts headings when first structural role is lvl4', () => {
+    it('shifts headings when first mapping is lvl4', () => {
       const config = {
         ...defaultConfig,
         structure: { ...defaultConfig.structure, headingMapping: { lvl4: 'section' } as const },
@@ -358,10 +323,10 @@ describe('assemble', () => {
       expect(result).toContain('###### d')
     })
 
-    it('shifts headings when first role is lvl6', () => {
+    it('shifts headings when first mapping is lvl6', () => {
       const config = {
         ...defaultConfig,
-        structure: { ...defaultConfig.structure, headingMapping: { lvl6: 'section' } as const },
+        structure: { ...defaultConfig.structure, headingMapping: { lvl6: 'part' } as const },
       }
       const result = assemble([note('# a\n\n## b')], config)
       expect(result).toContain('###### a')

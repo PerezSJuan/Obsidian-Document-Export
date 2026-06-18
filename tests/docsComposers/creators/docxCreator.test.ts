@@ -32,6 +32,11 @@ const defaultConfig: ExportConfig = {
     formats: { pdf: true, docx: false, latex: false },
     savePath: '/output',
   },
+  formatting: {
+    font: 'times-new-roman',
+    baseFontSize: 11,
+    pageNumbers: { enabled: false, position: 'bottom-center' },
+  },
 }
 
 function mergeConfig(overrides?: Partial<ExportConfig>): ExportConfig {
@@ -62,7 +67,7 @@ describe('DocxCreator', () => {
 
     it('starts with PK zip magic bytes (valid ZIP/DOCX)', async () => {
       const buf = await createDocx('Hello')
-      expect(buf.slice(0, 2).toString()).toBe('PK')
+      expect(buf.subarray(0, 2).toString()).toBe('PK')
     })
 
     it('returns export.docx as fileName', async () => {
@@ -90,7 +95,7 @@ describe('DocxCreator', () => {
     it('produces valid DOCX with empty markdown', async () => {
       const buf = await createDocx('')
       expect(buf.length).toBeGreaterThan(0)
-      expect(buf.slice(0, 2).toString()).toBe('PK')
+      expect(buf.subarray(0, 2).toString()).toBe('PK')
     })
   })
 
@@ -115,21 +120,21 @@ describe('DocxCreator', () => {
       })
       const content = buf.toString('latin1')
       expect(content).toContain('document.xml')
-      expect(buf.slice(0, 2).toString()).toBe('PK')
+      expect(buf.subarray(0, 2).toString()).toBe('PK')
     })
 
     it('accepts headingMapping for lvl1 as bold', async () => {
       const buf = await createDocx('# Title', {
         structure: { ...defaultConfig.structure, headingMapping: { lvl1: 'bold' } },
       })
-      expect(buf.slice(0, 2).toString()).toBe('PK')
+      expect(buf.subarray(0, 2).toString()).toBe('PK')
     })
 
     it('accepts headingMapping for lvl1 as italic', async () => {
       const buf = await createDocx('# Title', {
         structure: { ...defaultConfig.structure, headingMapping: { lvl1: 'italic' } },
       })
-      expect(buf.slice(0, 2).toString()).toBe('PK')
+      expect(buf.subarray(0, 2).toString()).toBe('PK')
     })
   })
 
@@ -138,7 +143,7 @@ describe('DocxCreator', () => {
       const md = '# Chapter 1\n\nParagraph 1.\n\nParagraph 2.'
       const buf = await createDocx(md)
       expect(buf.length).toBeGreaterThan(200)
-      expect(buf.slice(0, 2).toString()).toBe('PK')
+      expect(buf.subarray(0, 2).toString()).toBe('PK')
     })
   })
 
@@ -167,7 +172,7 @@ describe('DocxCreator', () => {
       const content = buf.toString('latin1')
       expect(content).toContain('document.xml')
       expect(content).toContain('styles.xml')
-      expect(buf.slice(0, 2).toString()).toBe('PK')
+      expect(buf.subarray(0, 2).toString()).toBe('PK')
       expect(buf.length).toBeGreaterThan(500)
     })
   })

@@ -32,6 +32,11 @@ const defaultConfig: ExportConfig = {
     formats: { pdf: true, docx: false, latex: false },
     savePath: '/output',
   },
+  formatting: {
+    font: 'times-new-roman',
+    baseFontSize: 11,
+    pageNumbers: { enabled: false, position: 'bottom-center' },
+  },
 }
 
 function mergeConfig(overrides?: Partial<ExportConfig>): ExportConfig {
@@ -62,12 +67,12 @@ describe('PdfCreator', () => {
 
     it('starts with PDF magic bytes', async () => {
       const buf = await createPdf('Hello')
-      expect(buf.slice(0, 5).toString()).toBe('%PDF-')
+      expect(buf.subarray(0, 5).toString()).toBe('%PDF-')
     })
 
     it('ends with %%EOF', async () => {
       const buf = await createPdf('Hello')
-      expect(buf.slice(-6).toString()).toBe('%%EOF\n')
+      expect(buf.subarray(-6).toString()).toBe('%%EOF\n')
     })
 
     it('returns export.pdf as fileName', async () => {
@@ -126,8 +131,8 @@ describe('PdfCreator', () => {
   describe('empty content', () => {
     it('produces valid PDF with empty markdown', async () => {
       const buf = await createPdf('')
-      expect(buf.slice(0, 5).toString()).toBe('%PDF-')
-      expect(buf.slice(-6).toString()).toBe('%%EOF\n')
+      expect(buf.subarray(0, 5).toString()).toBe('%PDF-')
+      expect(buf.subarray(-6).toString()).toBe('%%EOF\n')
     })
   })
 
@@ -158,7 +163,7 @@ describe('PdfCreator', () => {
       expect(content).toContain('Helvetica-Oblique')
       expect(content).toContain('Helvetica-BoldOblique')
       expect(content).toContain('Courier')
-      expect(buf.slice(-6).toString()).toBe('%%EOF\n')
+      expect(buf.subarray(-6).toString()).toBe('%%EOF\n')
     })
 
     it('produces larger output for more content', async () => {

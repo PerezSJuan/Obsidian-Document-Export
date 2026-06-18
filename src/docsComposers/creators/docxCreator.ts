@@ -130,12 +130,12 @@ export class DocxCreator implements Creator {
     const result: Paragraph[] = []
     for (const token of blockquote.tokens) {
       const paragraphs = this.tokenToParagraphs(token, config)
-      for (const p of paragraphs) {
+      paragraphs.forEach(() => {
         result.push(new Paragraph({
           indent: { left: 400 },
           spacing: { before: 60, after: 60 },
         }))
-      }
+      })
     }
     return result
   }

@@ -5,6 +5,8 @@ import type { ExportConfig } from '../../types.js'
 import type { Creator, RenderResult } from './creator.js'
 import type { AssetResolver } from './assetResolver.js'
 
+type PDFDoc = InstanceType<typeof PDFDocument>
+
 interface TextRun {
   text: string
   bold?: boolean
@@ -80,7 +82,7 @@ export class PdfCreator implements Creator {
   }
 
   private renderTokens(
-    doc: PDFKit.PDFDocument,
+    doc: PDFDoc,
     tokens: Token[],
     config: ExportConfig,
     images: Map<string, Buffer>,
@@ -91,7 +93,7 @@ export class PdfCreator implements Creator {
   }
 
   private renderToken(
-    doc: PDFKit.PDFDocument,
+    doc: PDFDoc,
     token: Token,
     config: ExportConfig,
     images: Map<string, Buffer>,
@@ -126,7 +128,7 @@ export class PdfCreator implements Creator {
   }
 
   private renderHeading(
-    doc: PDFKit.PDFDocument,
+    doc: PDFDoc,
     heading: Tokens.Heading,
     config: ExportConfig,
   ): void {
@@ -151,7 +153,7 @@ export class PdfCreator implements Creator {
   }
 
   private renderParagraph(
-    doc: PDFKit.PDFDocument,
+    doc: PDFDoc,
     paragraph: Tokens.Paragraph,
     config: ExportConfig,
   ): void {
@@ -160,13 +162,13 @@ export class PdfCreator implements Creator {
     doc.moveDown(0.5)
   }
 
-  private renderTextBlock(doc: PDFKit.PDFDocument, text: Tokens.Text): void {
+  private renderTextBlock(doc: PDFDoc, text: Tokens.Text): void {
     const runs = this.inlineToRuns(text.tokens ?? [])
     this.writeRuns(doc, runs, { size: 11 })
     doc.moveDown(0.5)
   }
 
-  private renderCode(doc: PDFKit.PDFDocument, code: Tokens.Code): void {
+  private renderCode(doc: PDFDoc, code: Tokens.Code): void {
     const lines = code.text.split('\n')
     doc.font('Courier').fontSize(9)
     doc.fillColor('#333333')
@@ -179,7 +181,7 @@ export class PdfCreator implements Creator {
   }
 
   private renderBlockquote(
-    doc: PDFKit.PDFDocument,
+    doc: PDFDoc,
     blockquote: Tokens.Blockquote,
     config: ExportConfig,
     images: Map<string, Buffer>,
@@ -203,7 +205,7 @@ export class PdfCreator implements Creator {
   }
 
   private renderList(
-    doc: PDFKit.PDFDocument,
+    doc: PDFDoc,
     list: Tokens.List,
     config: ExportConfig,
     images: Map<string, Buffer>,
@@ -240,7 +242,7 @@ export class PdfCreator implements Creator {
     return this.runsToText(this.inlineToRuns(item.tokens))
   }
 
-  private renderHr(doc: PDFKit.PDFDocument): void {
+  private renderHr(doc: PDFDoc): void {
     const y = doc.y + 5
     doc.moveTo(doc.page.margins.left, y)
       .lineTo(doc.page.width - doc.page.margins.right, y)
@@ -293,7 +295,7 @@ export class PdfCreator implements Creator {
   }
 
   private writeRuns(
-    doc: PDFKit.PDFDocument,
+    doc: PDFDoc,
     runs: TextRun[],
     opts: { size?: number; bold?: boolean; italic?: boolean } = {},
   ): void {

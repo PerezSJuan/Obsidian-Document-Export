@@ -32,6 +32,11 @@ const defaultConfig: ExportConfig = {
     formats: { pdf: true, docx: false, latex: false },
     savePath: '/output',
   },
+  formatting: {
+    font: 'times-new-roman',
+    baseFontSize: 11,
+    pageNumbers: { enabled: false, position: 'bottom-center' },
+  },
 }
 
 async function createLatex(markdown: string, overrides?: Partial<ExportConfig>): Promise<string> {

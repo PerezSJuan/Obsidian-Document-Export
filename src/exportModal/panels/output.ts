@@ -1,0 +1,132 @@
+import type { ExportVaultModal } from '../modal.js';
+import type { FontFamily, PageNumberPosition } from '../../types.js';
+import { buildPanelHeading, buildSectionHeading, createPathField, createSelectField, createToggleRow } from '../helpers.js';
+
+interface ElectronDialog {
+	showOpenDialog(options: { properties: string[] }): Promise<{
+		canceled: boolean;
+		filePaths: string[];
+	}>;
+}
+
+interface FileWithPath extends File {
+	path?: string;
+}
+
+export function buildOutputPanel(container: HTMLDivElement, modal: ExportVaultModal) {
+	buildPanelHeading(container, 'Output');
+	buildFormatSection(container, modal);
+	buildFormattingSection(container, modal);
+	buildSavePathSection(container, modal);
+}
+
+function buildFormatSection(container: HTMLDivElement, modal: ExportVaultModal) {
+	const section = container.createDiv({ cls: 'export-modal__section' });
+	buildSectionHeading(section, 'Formats');
+
+	const formatDefs = [
+		{ key: 'pdf' as const, label: 'PDF' },
+		{ key: 'docx' as const, label: 'DOCX' },
+		{ key: 'latex' as const, label: 'LaTeX source' },
+	];
+	formatDefs.forEach((f) => {
+		const row = section.createEl('label', { cls: 'export-modal__checkbox-row' });
+		const cb = row.createEl('input', { attr: { type: 'checkbox' } });
+		cb.checked = modal.formats[f.key];
+		cb.addEventListener('change', () => {
+			modal.formats[f.key] = cb.checked;
+		});
+		row.createSpan({ text: f.label });
+	});
+}
+
+function tryElectronDialog(modal: ExportVaultModal, display: HTMLElement): void {
+	const electron = (window as { require?(name: string): { remote?: { dialog?: ElectronDialog }; dialog?: ElectronDialog } }).require?.('electron');
+	const dialog = electron?.remote?.dialog || electron?.dialog;
+	if (!dialog?.showOpenDialog) return;
+	dialog.showOpenDialog({ properties: ['openDirectory'] }).then((result) => {
+		if (result.canceled || !result.filePaths.length) return;
+		const dir = result.filePaths[0];
+		if (!dir) return;
+		modal.savePath = dir;
+		display.textContent = dir;
+	}).catch(() => undefined);
+}
+
+function tryWebkitDialog(modal: ExportVaultModal, display: HTMLElement): void {
+	const fileInput = activeDocument.createElement('input');
+	fileInput.type = 'file';
+	fileInput.setAttribute('webkitdirectory', '');
+	fileInput.classList.add('export-modal__hidden-input');
+	activeDocument.body.appendChild(fileInput);
+	fileInput.addEventListener('change', () => {
+		activeDocument.body.removeChild(fileInput);
+		if (!fileInput.files?.length) return;
+		const rawFile = fileInput.files[0];
+		if (!rawFile) return;
+		const file = rawFile as FileWithPath;
+		const dir = file.path?.substring(0, file.path.lastIndexOf('/')) || file.webkitRelativePath.substring(0, file.webkitRelativePath.lastIndexOf('/'));
+		if (!dir) return;
+		modal.savePath = dir;
+		display.textContent = dir;
+	});
+	fileInput.click();
+}
+
+function buildFormattingSection(container: HTMLDivElement, modal: ExportVaultModal) {
+	const section = container.createDiv({
+		cls: 'export-modal__section export-modal__section--bordered',
+	});
+	buildSectionHeading(section, 'Formatting');
+
+	const fonts: { value: string; label: string }[] = [
+		{ value: 'times-new-roman', label: 'Times New Roman' },
+		{ value: 'arial', label: 'Arial' },
+		{ value: 'calibri', label: 'Calibri' },
+		{ value: 'georgia', label: 'Georgia' },
+		{ value: 'garamond', label: 'Garamond' },
+		{ value: 'verdana', label: 'Verdana' },
+		{ value: 'courier-new', label: 'Courier New' },
+		{ value: 'consolas', label: 'Consolas' },
+	];
+	createSelectField(section, 'Font', fonts, modal.font, (value) => {
+		modal.font = value as FontFamily;
+	});
+
+	const sizes: { value: string; label: string }[] = [];
+	for (let i = 8; i <= 14; i++) {
+		sizes.push({ value: String(i), label: `${i} pt` });
+	}
+	createSelectField(section, 'Base font size', sizes, String(modal.baseFontSize), (value) => {
+		modal.baseFontSize = Number(value);
+	});
+
+	const positions: { value: string; label: string }[] = [
+		{ value: 'bottom-center', label: 'Bottom center' },
+		{ value: 'bottom-left', label: 'Bottom left' },
+		{ value: 'bottom-right', label: 'Bottom right' },
+		{ value: 'top-center', label: 'Top center' },
+		{ value: 'top-left', label: 'Top left' },
+		{ value: 'top-right', label: 'Top right' },
+	];
+	const pageNumToggle = createToggleRow(section, 'Page numbers', modal.pageNumbersEnabled);
+	const pageNumPosField = section.createDiv({ cls: 'export-modal__field-stack' });
+	pageNumToggle.addEventListener('change', () => {
+		modal.pageNumbersEnabled = pageNumToggle.checked;
+		pageNumPosField.classList.toggle('is-hidden', !pageNumToggle.checked);
+	});
+	createSelectField(pageNumPosField, 'Position', positions, modal.pageNumberPosition, (value) => {
+		modal.pageNumberPosition = value as PageNumberPosition;
+	});
+}
+
+function buildSavePathSection(container: HTMLDivElement, modal: ExportVaultModal) {
+	const section = container.createDiv({
+		cls: 'export-modal__section export-modal__section--bordered',
+	});
+	buildSectionHeading(section, 'Save path');
+	createPathField(section, 'Save to', modal.savePath, 'Browse', (display) => {
+		tryElectronDialog(modal, display);
+		tryWebkitDialog(modal, display);
+	});
+}
