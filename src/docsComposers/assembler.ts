@@ -1,4 +1,6 @@
-import { type NormalizedNote, type ExportConfig } from '../types.js'
+import { type NormalizedNote, type ExportConfig, type HeadingMapping } from '../types.js'
+
+const headingLevels = ['lvl1', 'lvl2', 'lvl3', 'lvl4', 'lvl5', 'lvl6']
 
 export function assemble(
   notes: NormalizedNote[],
@@ -11,24 +13,25 @@ export function assemble(
 
 function buildFrontmatter(config: ExportConfig): string {
   const lines: string[] = []
+  const meta = config.source.metadata
 
-  if (config.cover.title) {
-    lines.push(`title: ${formatYamlValue(config.cover.title)}`)
+  if (meta.title) {
+    lines.push(`title: ${formatYamlValue(meta.title)}`)
   }
-  if (config.cover.subtitle) {
-    lines.push(`subtitle: ${formatYamlValue(config.cover.subtitle)}`)
+  if (meta.subtitle) {
+    lines.push(`subtitle: ${formatYamlValue(meta.subtitle)}`)
   }
-  if (config.cover.author) {
-    lines.push(`author: ${formatYamlValue(config.cover.author)}`)
+  if (meta.author) {
+    lines.push(`author: ${formatYamlValue(meta.author)}`)
   }
-  if (config.cover.coverImage) {
-    lines.push(`cover-image: ${formatYamlValue(config.cover.coverImage)}`)
+  if (config.frontMatter.coverImagePath) {
+    lines.push(`cover-image: ${formatYamlValue(config.frontMatter.coverImagePath)}`)
   }
-  if (config.toc.depth > 0) {
+  if (config.frontMatter.toc.enabled && config.frontMatter.toc.depth > 0) {
     lines.push(`toc: true`)
-    lines.push(`toc-depth: ${config.toc.depth}`)
-    if (config.toc.title) {
-      lines.push(`toc-title: ${formatYamlValue(config.toc.title)}`)
+    lines.push(`toc-depth: ${config.frontMatter.toc.depth}`)
+    if (config.frontMatter.toc.title) {
+      lines.push(`toc-title: ${formatYamlValue(config.frontMatter.toc.title)}`)
     }
   }
 
@@ -40,7 +43,7 @@ function buildBody(
   notes: NormalizedNote[],
   config: ExportConfig,
 ): string {
-  const offset = computeHeadingOffset(config.headingRoles)
+  const offset = computeHeadingOffset(config.structure.headingMapping)
   const parts: string[] = []
 
   for (const note of notes) {
@@ -56,16 +59,19 @@ function buildBody(
 }
 
 function computeHeadingOffset(
-  headingRoles: Record<string, string>,
+  headingMapping: Record<string, HeadingMapping>,
 ): number {
-  const levels = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']
-  for (let i = 0; i < levels.length; i++) {
-    const role = headingRoles[levels[i]!]
-    if (role && role !== 'paragraph' && role !== 'bold' && role !== 'italic') {
+  for (let i = 0; i < headingLevels.length; i++) {
+    const role = headingMapping[headingLevels[i]!]
+    if (role && !isInlineRole(role)) {
       return i
     }
   }
   return 0
+}
+
+function isInlineRole(role: HeadingMapping): boolean {
+  return role === 'paragraph' || role === 'bold' || role === 'italic' || role === 'inline'
 }
 
 function shiftHeadings(content: string, offset: number): string {
@@ -84,3 +90,5 @@ function formatYamlValue(value: string): string {
   const escaped = value.replace(/"/g, '\\"')
   return `"${escaped}"`
 }
+
+export { computeHeadingOffset, shiftHeadings }

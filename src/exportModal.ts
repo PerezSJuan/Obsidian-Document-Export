@@ -1,52 +1,17 @@
 import { App, Modal, TFile } from 'obsidian';
 import { NoteSuggestModal } from './noteSuggestModal.js';
+import { type ExportConfig as SharedExportConfig, type HeadingMapping as SharedHeadingMapping } from './types.js';
 
 type PanelId = 'source' | 'structure' | 'front' | 'output';
-type ContentMode = 'manifest' | 'manual';
-type HeadingMapping = 'part' | 'chapter' | 'section' | 'subsection' | 'inline' | 'paragraph' | 'bold' | 'italic';
+type ContentMode = SharedExportConfig['source']['mode'];
+type HeadingMapping = SharedHeadingMapping;
 
 interface HeadingMappingOption {
 	value: HeadingMapping;
 	label: string;
 }
 
-interface ExportConfig {
-	source: {
-		mode: ContentMode;
-		indexNotePath: string;
-		selectedNotes: string[];
-		metadata: {
-			title: string;
-			subtitle: string;
-			author: string;
-		};
-	};
-	structure: {
-		newChapterPerNote: boolean;
-		headingMapping: Record<string, HeadingMapping>;
-		wikilinkMode: string;
-		tagMode: string;
-		noteNameMode: string;
-	};
-	frontMatter: {
-		enableCoverPage: boolean;
-		useBookMetadata: boolean;
-		coverImagePath: string;
-		toc: {
-			enabled: boolean;
-			depth: number;
-			title: string;
-		};
-	};
-	output: {
-		formats: {
-			pdf: boolean;
-			docx: boolean;
-			latex: boolean;
-		};
-		savePath: string;
-	};
-}
+export type ExportConfig = SharedExportConfig;
 
 export class ExportVaultModal extends Modal {
 	private currentPanel: PanelId = 'source';
@@ -66,9 +31,9 @@ export class ExportVaultModal extends Modal {
 	private manualNotesListEl?: HTMLUListElement;
 	private manifestSectionEl?: HTMLDivElement;
 	private manualSectionEl?: HTMLDivElement;
-	private wikilinkMode = 'resolve';
-	private tagMode = 'keep';
-	private noteNameMode = 'none';
+	private wikilinkMode: SharedExportConfig['structure']['wikilinkMode'] = 'resolve';
+	private tagMode: SharedExportConfig['structure']['tagMode'] = 'keep';
+	private noteNameMode: SharedExportConfig['structure']['noteNameMode'] = 'none';
 	private indexNotePath = '';
 	private dragIndex = -1;
 	private parsedWikilinks: { target: string; display: string; exists: boolean }[] = [];
@@ -81,6 +46,7 @@ export class ExportVaultModal extends Modal {
 	private tocDepth = 2;
 	private tocTitle = 'Contents';
 	private formats = { pdf: true, docx: false, latex: false };
+	onExport?: (config: ExportConfig) => Promise<void>;
 
 	constructor(app: App) {
 		super(app);
@@ -185,8 +151,17 @@ export class ExportVaultModal extends Modal {
 			text: 'Export book',
 			cls: 'mod-cta',
 		});
-		exportBtn.addEventListener('click', () => {
-			console.log('Export config:', JSON.stringify(this.getConfig(), null, 2));
+		exportBtn.addEventListener('click', async () => {
+			if (this.onExport) {
+				exportBtn.disabled = true;
+				exportBtn.textContent = 'Exporting...';
+				try {
+					await this.onExport(this.getConfig());
+				} catch (err) {
+					console.error('Export failed:', err);
+				}
+				this.close();
+			}
 		});
 	}
 
@@ -540,7 +515,7 @@ export class ExportVaultModal extends Modal {
 		});
 		wikilinkSelect.value = this.wikilinkMode;
 		wikilinkSelect.addEventListener('change', () => {
-			this.wikilinkMode = wikilinkSelect.value;
+			this.wikilinkMode = wikilinkSelect.value as SharedExportConfig['structure']['wikilinkMode'];
 		});
 
 		const tagField = fields.createDiv({ cls: 'export-modal__field' });
@@ -555,7 +530,7 @@ export class ExportVaultModal extends Modal {
 		});
 		tagSelect.value = this.tagMode;
 		tagSelect.addEventListener('change', () => {
-			this.tagMode = tagSelect.value;
+			this.tagMode = tagSelect.value as SharedExportConfig['structure']['tagMode'];
 		});
 
 		const noteNameField = fields.createDiv({ cls: 'export-modal__field' });
@@ -569,7 +544,7 @@ export class ExportVaultModal extends Modal {
 		});
 		noteNameSelect.value = this.noteNameMode;
 		noteNameSelect.addEventListener('change', () => {
-			this.noteNameMode = noteNameSelect.value;
+			this.noteNameMode = noteNameSelect.value as SharedExportConfig['structure']['noteNameMode'];
 		});
 	}
 

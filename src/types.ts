@@ -1,3 +1,9 @@
+export type ContentMode = 'manifest' | 'manual'
+
+export type HeadingMapping =
+  | 'part' | 'chapter' | 'section' | 'subsection'
+  | 'inline' | 'paragraph' | 'bold' | 'italic'
+
 export interface NormalizedNote {
   path: string
   title: string
@@ -5,25 +11,42 @@ export interface NormalizedNote {
   frontmatter: Record<string, unknown>
 }
 
-export interface CoverConfig {
-  title: string
-  subtitle?: string
-  author?: string
-  coverImage?: string
-}
-
-export interface TocConfig {
-  depth: number
-  title: string
-}
-
-export type OutputFormat = 'pdf' | 'docx' | 'latex'
-
 export interface ExportConfig {
-  sourceOrder: string[]
-  headingRoles: Record<string, string>
-  cover: CoverConfig
-  toc: TocConfig
-  formats: OutputFormat[]
-  outputPath: string
+  source: {
+    mode: ContentMode
+    indexNotePath: string
+    selectedNotes: string[]
+    metadata: {
+      title: string
+      subtitle: string
+      author: string
+    }
+  }
+  structure: {
+    newChapterPerNote: boolean
+    headingMapping: Record<string, HeadingMapping>
+    wikilinkMode: 'resolve' | 'raw' | 'strip'
+    tagMode: 'keep' | 'bold' | 'strip'
+    noteNameMode: 'none' | HeadingMapping
+  }
+  frontMatter: {
+    enableCoverPage: boolean
+    useBookMetadata: boolean
+    coverImagePath: string
+    toc: {
+      enabled: boolean
+      depth: number
+      title: string
+    }
+  }
+  output: {
+    formats: { pdf: boolean; docx: boolean; latex: boolean }
+    savePath: string
+  }
+}
+
+export interface RenderResult {
+  data: Buffer | string
+  fileName: string
+  extraFiles?: { name: string; data: ArrayBuffer }[]
 }

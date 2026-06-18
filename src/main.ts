@@ -1,103 +1,110 @@
 import {
-	Editor,
-	MarkdownView,
-	MarkdownFileInfo,
-	Notice,
-	Plugin,
+  Plugin,
+  TFile,
+  TFolder,
+  Notice,
+  normalizePath,
 } from 'obsidian';
 import {
-	DEFAULT_SETTINGS,
-	DocumentExportSettings,
-	DocumentExportSettingTab,
+  DEFAULT_SETTINGS,
+  DocumentExportSettings,
+  DocumentExportSettingTab,
 } from './settings.js';
 import { ExportVaultModal } from './exportModal.js';
-
-// Remember to rename these classes and interfaces!
+import type { ExportConfig, NormalizedNote } from './types.js';
+import { normalizeNote } from './docsComposers/normalizer.js';
+import { assemble } from './docsComposers/assembler.js';
+import { ExportManager } from './docsComposers/exportManager.js';
+import { LatexCreator } from './docsComposers/creators/latexCreator.js';
+import { PdfCreator } from './docsComposers/creators/pdfCreator.js';
+import { DocxCreator } from './docsComposers/creators/docxCreator.js';
+import { ObsidianAssetResolver } from './infra/obsidianAssetResolver.js';
 
 export default class MyPlugin extends Plugin {
-	settings!: DocumentExportSettings;
+  settings!: DocumentExportSettings;
+  private exportManager = new ExportManager()
+  private assetResolver = new ObsidianAssetResolver(this.app.vault)
 
-	async onload() {
-		await this.loadSettings();
+  async onload() {
+    await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (_evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
+    this.exportManager.registerCreator('latex', new LatexCreator())
+    this.exportManager.registerCreator('pdf', new PdfCreator())
+    this.exportManager.registerCreator('docx', new DocxCreator())
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
+    this.addCommand({
+      id: 'export-document',
+      name: 'Export document',
+      callback: () => {
+        const modal = new ExportVaultModal(this.app)
+        modal.onExport = (config) => this.runExport(config)
+        modal.open()
+      },
+    });
 
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'export-document',
-			name: 'Export document',
-			callback: () => {
-				new ExportVaultModal(this.app).open();
-			},
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (
-				editor: Editor,
-				_ctx: MarkdownView | MarkdownFileInfo,
-			) => {
-				editor.replaceSelection('Sample editor command');
-			},
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'export-document-check',
-			name: 'Export document (when in markdown)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView =
-					this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new ExportVaultModal(this.app).open();
-					}
+    this.addSettingTab(new DocumentExportSettingTab(this.app, this));
+  }
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-				return false;
-			},
-		});
+  onunload() {}
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new DocumentExportSettingTab(this.app, this));
+  private async runExport(config: ExportConfig): Promise<void> {
+    const vault = this.app.vault
+    const notes: NormalizedNote[] = []
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(activeDocument, 'click', (_evt: MouseEvent) => {
-			new Notice('Click');
-		});
+    if (config.source.mode === 'manifest') {
+      const file = vault.getAbstractFileByPath(config.source.indexNotePath)
+      if (!file || !(file instanceof TFile)) {
+        new Notice('Index note not found')
+        return
+      }
+      const content = await vault.read(file)
+      notes.push(normalizeNote(content, file.path))
+    } else {
+      for (const path of config.source.selectedNotes) {
+        const file = vault.getAbstractFileByPath(path)
+        if (!file || !(file instanceof TFile)) continue
+        const content = await vault.read(file)
+        notes.push(normalizeNote(content, file.path))
+      }
+    }
 
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(
-			window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000),
-		);
-	}
+    if (notes.length === 0) {
+      new Notice('No notes to export')
+      return
+    }
 
-	onunload() {}
+    const bookMd = assemble(notes, config)
+    const results = await this.exportManager.runPipeline(bookMd, config, this.assetResolver)
 
-	async loadSettings() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			(await this.loadData()) as Partial<DocumentExportSettings>,
-		);
-	}
+    for (const result of results) {
+      const savePath = normalizePath(`${config.output.savePath}/${result.fileName}`)
+      const existing = vault.getAbstractFileByPath(savePath)
+      if (existing && existing instanceof TFile) {
+        await vault.modify(existing, typeof result.data === 'string' ? result.data : '')
+      } else {
+        const dir = savePath.substring(0, savePath.lastIndexOf('/'))
+        if (dir) {
+          const folder = vault.getAbstractFileByPath(dir)
+          if (!folder || !(folder instanceof TFolder)) {
+            await vault.createFolder(dir)
+          }
+        }
+        await vault.create(savePath, typeof result.data === 'string' ? result.data : '')
+      }
+    }
 
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
+    new Notice(`Export complete: ${results.map(r => r.fileName).join(', ')}`)
+  }
+
+  async loadSettings() {
+    this.settings = Object.assign(
+      {},
+      DEFAULT_SETTINGS,
+      (await this.loadData()) as Partial<DocumentExportSettings>,
+    );
+  }
+
+  async saveSettings() {
+    await this.saveData(this.settings);
+  }
 }
-
