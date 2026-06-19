@@ -5,11 +5,12 @@ import {
 	getHeadingMappingOptions
 } from '../helpers.js';
 import { buildFieldLabel, buildSectionHeading, createToggleRow } from '../helpers.js';
+import { t } from '../../i18n.js';
 
 export function buildStructurePanel(container: HTMLDivElement, modal: ExportVaultModal) {
-	buildPanelHeading(container, 'Structure');
+	buildPanelHeading(container, t('panel-structure'));
 
-	const newChapterToggle = createToggleRow(container, 'Start a new chapter at each note', modal.newChapterPerNote);
+	const newChapterToggle = createToggleRow(container, t('toggle-new-chapter'), modal.newChapterPerNote);
 	newChapterToggle.addEventListener('change', () => {
 		modal.newChapterPerNote = newChapterToggle.checked;
 	});
@@ -22,7 +23,7 @@ function buildHeadingMappingSection(container: HTMLDivElement, modal: ExportVaul
 	const section = container.createDiv({
 		cls: 'export-modal__section export-modal__section--bordered',
 	});
-	buildSectionHeading(section, 'Heading mapping');
+	buildSectionHeading(section, t('section-heading-mapping'));
 
 	const rows = section.createDiv({ cls: 'export-modal__field-stack' });
 	const levels = [
@@ -59,16 +60,16 @@ function buildReferencesSection(container: HTMLDivElement, modal: ExportVaultMod
 	const section = container.createDiv({
 		cls: 'export-modal__section export-modal__section--bordered',
 	});
-	buildSectionHeading(section, 'References & tags');
+	buildSectionHeading(section, t('section-references-tags'));
 
 	const fields = section.createDiv({ cls: 'export-modal__field-stack' });
 	const wikilinkField = fields.createDiv({ cls: 'export-modal__field' });
-	buildFieldLabel(wikilinkField, 'Wikilinks [[Note]]');
+	buildFieldLabel(wikilinkField, t('field-wikilinks'));
 	const wikilinkSelect = wikilinkField.createEl('select');
 	[
-		{ value: 'resolve', label: 'Resolve to note title' },
-		{ value: 'raw', label: 'Keep as raw text' },
-		{ value: 'strip', label: 'Strip references' },
+		{ value: 'resolve', label: t('dropdown-resolve') },
+		{ value: 'raw', label: t('dropdown-raw') },
+		{ value: 'strip', label: t('dropdown-strip') },
 	].forEach((opt) => {
 		wikilinkSelect.createEl('option', { value: opt.value, text: opt.label });
 	});
@@ -78,12 +79,12 @@ function buildReferencesSection(container: HTMLDivElement, modal: ExportVaultMod
 	});
 
 	const tagField = fields.createDiv({ cls: 'export-modal__field' });
-	buildFieldLabel(tagField, 'Tags #tag');
+	buildFieldLabel(tagField, t('field-tags'));
 	const tagSelect = tagField.createEl('select');
 	[
-		{ value: 'keep', label: 'Keep as text' },
-		{ value: 'bold', label: 'Convert to bold' },
-		{ value: 'strip', label: 'Strip tags' },
+		{ value: 'keep', label: t('dropdown-keep-text') },
+		{ value: 'bold', label: t('dropdown-convert-bold') },
+		{ value: 'strip', label: t('dropdown-strip-tags') },
 	].forEach((opt) => {
 		tagSelect.createEl('option', { value: opt.value, text: opt.label });
 	});
@@ -93,10 +94,10 @@ function buildReferencesSection(container: HTMLDivElement, modal: ExportVaultMod
 	});
 
 	const noteNameField = fields.createDiv({ cls: 'export-modal__field' });
-	buildFieldLabel(noteNameField, 'Note name');
+	buildFieldLabel(noteNameField, t('field-note-name'));
 	const noteNameSelect = noteNameField.createEl('select');
 	[
-		{ value: 'none', label: 'None' },
+		{ value: 'none', label: t('dropdown-none') },
 		...getHeadingMappingOptions(),
 	].forEach((opt) => {
 		noteNameSelect.createEl('option', { value: opt.value, text: opt.label });

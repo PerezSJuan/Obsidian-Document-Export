@@ -3,6 +3,7 @@ import type { ExportVaultModal } from '../modal.js';
 import type { FontFamily, PageNumberPosition } from '../../types.js';
 import { buildPanelHeading, buildSectionHeading, createPathField, createSelectField, createToggleRow } from '../helpers.js';
 import { normalizeVaultRelativePath } from '../../utils/vaultPath.js';
+import { t } from '../../i18n.js';
 
 interface ElectronDialog {
 	showOpenDialog(options: { properties: string[] }): Promise<{
@@ -16,7 +17,7 @@ interface FileWithPath extends File {
 }
 
 export function buildOutputPanel(container: HTMLDivElement, modal: ExportVaultModal) {
-	buildPanelHeading(container, 'Output');
+	buildPanelHeading(container, t('panel-output'));
 	buildFormatSection(container, modal);
 	buildFormattingSection(container, modal);
 	buildSavePathSection(container, modal);
@@ -24,12 +25,12 @@ export function buildOutputPanel(container: HTMLDivElement, modal: ExportVaultMo
 
 function buildFormatSection(container: HTMLDivElement, modal: ExportVaultModal) {
 	const section = container.createDiv({ cls: 'export-modal__section' });
-	buildSectionHeading(section, 'Formats');
+	buildSectionHeading(section, t('section-formats'));
 
 	const formatDefs = [
-		{ key: 'pdf' as const, label: 'PDF' },
-		{ key: 'docx' as const, label: 'DOCX' },
-		{ key: 'latex' as const, label: 'LaTeX source' },
+		{ key: 'pdf' as const, label: t('label-pdf') },
+		{ key: 'docx' as const, label: t('label-docx') },
+		{ key: 'latex' as const, label: t('label-latex') },
 	];
 	formatDefs.forEach((f) => {
 		const row = section.createEl('label', { cls: 'export-modal__checkbox-row' });
@@ -62,7 +63,7 @@ function tryElectronDialog(modal: ExportVaultModal, display: HTMLElement): void 
 			return;
 		}
 		modal.savePath = relative;
-		display.textContent = relative || '(vault root)';
+		display.textContent = relative || t('vault-root');
 	}).catch(() => undefined);
 }
 
@@ -83,11 +84,11 @@ function tryWebkitDialog(modal: ExportVaultModal, display: HTMLElement): void {
 		const basePath = (modal.app.vault.adapter as { getBasePath?(): string }).getBasePath?.() || '';
 		const relative = normalizeVaultRelativePath(dir, basePath);
 		if (!relative && dir !== basePath) {
-			new Notice('Select a folder inside the vault');
+			new Notice(t('notice-folder-inside-vault'));
 			return;
 		}
 		modal.savePath = relative;
-		display.textContent = relative || '(vault root)';
+		display.textContent = relative || t('vault-root');
 	});
 	fileInput.click();
 }
@@ -96,7 +97,7 @@ function buildFormattingSection(container: HTMLDivElement, modal: ExportVaultMod
 	const section = container.createDiv({
 		cls: 'export-modal__section export-modal__section--bordered',
 	});
-	buildSectionHeading(section, 'Formatting');
+	buildSectionHeading(section, t('section-formatting'));
 
 	const fonts: { value: string; label: string }[] = [
 		{ value: 'times-new-roman', label: 'Times New Roman' },
@@ -108,7 +109,7 @@ function buildFormattingSection(container: HTMLDivElement, modal: ExportVaultMod
 		{ value: 'courier-new', label: 'Courier New' },
 		{ value: 'consolas', label: 'Consolas' },
 	];
-	createSelectField(section, 'Font', fonts, modal.font, (value) => {
+	createSelectField(section, t('field-font'), fonts, modal.font, (value) => {
 		modal.font = value as FontFamily;
 	});
 
@@ -116,26 +117,26 @@ function buildFormattingSection(container: HTMLDivElement, modal: ExportVaultMod
 	for (let i = 8; i <= 14; i++) {
 		sizes.push({ value: String(i), label: `${i} pt` });
 	}
-	createSelectField(section, 'Base font size', sizes, String(modal.baseFontSize), (value) => {
+	createSelectField(section, t('field-base-font-size'), sizes, String(modal.baseFontSize), (value) => {
 		modal.baseFontSize = Number(value);
 	});
 
 	const positions: { value: string; label: string }[] = [
-		{ value: 'bottom-center', label: 'Bottom center' },
-		{ value: 'bottom-left', label: 'Bottom left' },
-		{ value: 'bottom-right', label: 'Bottom right' },
-		{ value: 'top-center', label: 'Top center' },
-		{ value: 'top-left', label: 'Top left' },
-		{ value: 'top-right', label: 'Top right' },
+		{ value: 'bottom-center', label: t('pos-bottom-center') },
+		{ value: 'bottom-left', label: t('pos-bottom-left') },
+		{ value: 'bottom-right', label: t('pos-bottom-right') },
+		{ value: 'top-center', label: t('pos-top-center') },
+		{ value: 'top-left', label: t('pos-top-left') },
+		{ value: 'top-right', label: t('pos-top-right') },
 	];
-	const pageNumToggle = createToggleRow(section, 'Page numbers', modal.pageNumbersEnabled);
+	const pageNumToggle = createToggleRow(section, t('toggle-page-numbers'), modal.pageNumbersEnabled);
 	const pageNumPosField = section.createDiv({ cls: 'export-modal__field-stack' });
 	pageNumPosField.classList.toggle('is-hidden', !modal.pageNumbersEnabled);
 	pageNumToggle.addEventListener('change', () => {
 		modal.pageNumbersEnabled = pageNumToggle.checked;
 		pageNumPosField.classList.toggle('is-hidden', !pageNumToggle.checked);
 	});
-	createSelectField(pageNumPosField, 'Position', positions, modal.pageNumberPosition, (value) => {
+	createSelectField(pageNumPosField, t('field-position'), positions, modal.pageNumberPosition, (value) => {
 		modal.pageNumberPosition = value as PageNumberPosition;
 	});
 }
@@ -144,8 +145,8 @@ function buildSavePathSection(container: HTMLDivElement, modal: ExportVaultModal
 	const section = container.createDiv({
 		cls: 'export-modal__section export-modal__section--bordered',
 	});
-	buildSectionHeading(section, 'Save path');
-	createPathField(section, 'Save to', modal.savePath || '(vault root)', 'Browse', (display) => {
+	buildSectionHeading(section, t('section-save-path'));
+	createPathField(section, t('field-save-to'), modal.savePath || t('vault-root'), t('btn-browse'), (display) => {
 		tryElectronDialog(modal, display);
 		tryWebkitDialog(modal, display);
 	});

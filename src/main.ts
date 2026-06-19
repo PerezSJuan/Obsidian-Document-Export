@@ -19,6 +19,7 @@ import { PdfCreator } from './docsComposers/creators/pdfCreator.js';
 import { DocxCreator } from './docsComposers/creators/docxCreator.js';
 import { ObsidianAssetResolver } from './infra/obsidianAssetResolver.js';
 import { joinVaultPath, normalizeVaultRelativePath } from './utils/vaultPath.js';
+import { t } from './i18n.js';
 
 export default class DocumentExportPlugin extends Plugin {
   settings!: DocumentExportSettings;
@@ -36,7 +37,7 @@ export default class DocumentExportPlugin extends Plugin {
 
     this.addCommand({
       id: 'export-document',
-      name: 'Export document',
+      name: t('cmd-export'),
       callback: () => {
         const modal = new ExportVaultModal(this.app);
         modal.applySettings(this.settings);
@@ -45,7 +46,7 @@ export default class DocumentExportPlugin extends Plugin {
       },
     });
 
-    this.addRibbonIcon('file-down', 'Export document', () => {
+    this.addRibbonIcon('file-down', t('ribbon-export'), () => {
       const modal = new ExportVaultModal(this.app);
       modal.applySettings(this.settings);
       modal.onExport = (config) => this.runExport(config);
@@ -71,7 +72,7 @@ export default class DocumentExportPlugin extends Plugin {
     if (config.source.mode === 'manifest') {
       const file = vault.getAbstractFileByPath(config.source.indexNotePath);
       if (!file || !(file instanceof TFile)) {
-        throw new Error('Index note not found: ' + config.source.indexNotePath);
+        throw new Error(t('error-index-not-found') + ': ' + config.source.indexNotePath);
       }
       const content = await vault.read(file);
       notes.push(normalizeNote(content, file.path, normalizeOpts));
@@ -85,14 +86,14 @@ export default class DocumentExportPlugin extends Plugin {
     }
 
     if (notes.length === 0) {
-      throw new Error('No notes to export');
+      throw new Error(t('error-no-notes'));
     }
 
     const bookMd = assemble(notes, config);
     const results = await this.exportManager.runPipeline(bookMd, config, this.assetResolver);
 
     if (results.length === 0) {
-      throw new Error('No output formats selected');
+      throw new Error(t('error-no-formats'));
     }
 
     for (const result of results) {
@@ -140,7 +141,7 @@ export default class DocumentExportPlugin extends Plugin {
       }
     }
 
-    new Notice('Export complete: ' + results.map(r => r.fileName).join(', '));
+    new Notice(t('notice-export-complete') + ': ' + results.map(r => r.fileName).join(', '));
   }
 
   async loadSettings() {

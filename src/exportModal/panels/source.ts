@@ -10,9 +10,10 @@ import {
 	noteExists,
 	parseWikilinks,
 } from '../helpers.js';
+import { t } from '../../i18n.js';
 
 export function buildSourcePanel(container: HTMLDivElement, modal: ExportVaultModal) {
-	buildPanelHeading(container, 'Book contents');
+	buildPanelHeading(container, t('panel-book-contents'));
 	buildContentModeSelector(container, modal);
 
 	modal.manifestSectionEl = container.createDiv({ cls: 'export-modal__conditional-section' });
@@ -27,15 +28,15 @@ export function buildSourcePanel(container: HTMLDivElement, modal: ExportVaultMo
 
 function buildContentModeSelector(container: HTMLDivElement, modal: ExportVaultModal) {
 	const group = container.createDiv({ cls: 'export-modal__radio-group' });
-	createRadioOption(group, 'Use index note', 'manifest', modal);
-	createRadioOption(group, 'Build manually', 'manual', modal);
+	createRadioOption(group, t('radio-index-note'), 'manifest', modal);
+	createRadioOption(group, t('radio-build-manually'), 'manual', modal);
 }
 
 function buildManifestSection(container: HTMLDivElement, modal: ExportVaultModal) {
-	buildFieldLabel(container, 'Index note');
+	buildFieldLabel(container, t('field-index-note'));
 	const row = container.createDiv({ cls: 'export-modal__inline-row' });
 	const selectBtn = row.createEl('button', {
-		text: 'Select note',
+		text: t('btn-select-note'),
 		cls: 'export-modal__select-button',
 	});
 	selectBtn.createSpan({ text: '\u25BC', cls: 'export-modal__select-caret' });
@@ -47,7 +48,7 @@ function buildManifestSection(container: HTMLDivElement, modal: ExportVaultModal
 	});
 
 	container.createEl('p', {
-		text: 'Detected chapters: 0',
+		text: t('detected-chapters', { count: 0 }),
 		cls: 'export-modal__sub',
 	});
 
@@ -62,9 +63,9 @@ function syncManifestPreview(container: HTMLDivElement, modal: ExportVaultModal)
 	preview.empty();
 
 	if (!modal.indexNotePath) {
-		sub.textContent = 'Detected chapters: 0';
+		sub.textContent = t('detected-chapters', { count: 0 });
 		preview.createEl('p', {
-			text: 'No index note selected.',
+			text: t('no-index-note'),
 			cls: 'export-modal__empty-state',
 		});
 		return;
@@ -72,15 +73,15 @@ function syncManifestPreview(container: HTMLDivElement, modal: ExportVaultModal)
 
 	const file = modal.app.vault.getAbstractFileByPath(modal.indexNotePath);
 	if (!(file instanceof TFile)) {
-		sub.textContent = 'Detected chapters: 0';
+		sub.textContent = t('detected-chapters', { count: 0 });
 		preview.createEl('p', {
-			text: 'File not found.',
+			text: t('file-not-found'),
 			cls: 'export-modal__empty-state',
 		});
 		return;
 	}
 
-	sub.textContent = 'Reading note...';
+	sub.textContent = t('reading-note');
 
 	modal.app.vault.read(file).then((content) => {
 		const links = parseWikilinks(content);
@@ -90,13 +91,13 @@ function syncManifestPreview(container: HTMLDivElement, modal: ExportVaultModal)
 		}));
 		const validCount = modal.parsedWikilinks.filter((l) => l.exists).length;
 		const brokenCount = modal.parsedWikilinks.length - validCount;
-		sub.textContent = `Detected chapters: ${modal.parsedWikilinks.length}`;
+		sub.textContent = t('detected-chapters', { count: modal.parsedWikilinks.length });
 
 		preview.empty();
 
 		if (modal.parsedWikilinks.length === 0) {
 			preview.createEl('p', {
-				text: 'No wikilinks found in this note.',
+				text: t('no-wikilinks'),
 				cls: 'export-modal__empty-state',
 			});
 			return;
@@ -107,8 +108,8 @@ function syncManifestPreview(container: HTMLDivElement, modal: ExportVaultModal)
 			const li = list.createEl('li', { cls: 'export-modal__note-row' });
 			li.createSpan({ text: link.display, cls: 'export-modal__note-path' });
 			if (!link.exists) {
-				li.createSpan({
-					text: 'Broken link',
+			li.createSpan({
+				text: t('broken-link'),
 					cls: 'export-modal__error-badge',
 				});
 			}
@@ -116,25 +117,25 @@ function syncManifestPreview(container: HTMLDivElement, modal: ExportVaultModal)
 
 		if (brokenCount > 0) {
 			preview.createEl('p', {
-				text: `${brokenCount} broken link(s) detected.`,
+				text: t('broken-links-count', { count: brokenCount }),
 				cls: 'export-modal__empty-state',
 				attr: { style: 'color: var(--text-error); margin-top: 6px;' },
 			});
 		}
 	}).catch(() => {
-		sub.textContent = 'Failed to read file.';
+		sub.textContent = t('failed-read-file');
 	});
 }
 
 function buildManualContentsSection(container: HTMLDivElement, modal: ExportVaultModal) {
-	buildFieldLabel(container, 'Selected notes');
+	buildFieldLabel(container, t('field-selected-notes'));
 	modal.manualNotesListEl = container.createEl('ul', {
 		cls: 'export-modal__note-list',
 	});
 	renderSelectedNotes(modal);
 
 	const addBtn = container.createEl('button', {
-		text: 'Add notes',
+		text: t('btn-add-notes'),
 		cls: 'export-modal__small-button',
 	});
 	addBtn.addEventListener('click', () => {
@@ -153,7 +154,7 @@ function renderSelectedNotes(modal: ExportVaultModal) {
 
 	if (modal.selectedNotes.length === 0) {
 		const empty = modal.manualNotesListEl.createEl('li', {
-			text: 'No notes selected.',
+			text: t('no-notes-selected'),
 			cls: 'export-modal__empty-state export-modal__empty-list-item',
 		});
 		empty.draggable = false;
@@ -234,18 +235,18 @@ function buildMetadataSection(container: HTMLDivElement, modal: ExportVaultModal
 	});
 	buildSectionHeading(
 		section,
-		'Metadata',
-		'Auto-filled from index note when available.',
+		t('section-metadata'),
+		t('metadata-desc'),
 	);
 
 	const fields = section.createDiv({ cls: 'export-modal__field-stack' });
-	createTextField(fields, 'Title', modal.detectedMetadata.title, (value) => {
+	createTextField(fields, t('field-title'), modal.detectedMetadata.title, (value) => {
 		modal.detectedMetadata.title = value;
 	});
-	createTextField(fields, 'Subtitle', modal.detectedMetadata.subtitle, (value) => {
+	createTextField(fields, t('field-subtitle'), modal.detectedMetadata.subtitle, (value) => {
 		modal.detectedMetadata.subtitle = value;
 	});
-	createTextField(fields, 'Author', modal.detectedMetadata.author, (value) => {
+	createTextField(fields, t('field-author'), modal.detectedMetadata.author, (value) => {
 		modal.detectedMetadata.author = value;
 	});
 }

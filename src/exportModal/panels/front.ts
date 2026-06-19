@@ -2,28 +2,29 @@ import { Notice } from 'obsidian';
 import type { ExportVaultModal } from '../modal.js';
 import { buildPanelHeading, buildSectionHeading, buildFieldLabel, createToggleRow, createPathField, createTextField } from '../helpers.js';
 import { normalizeVaultRelativePath } from '../../utils/vaultPath.js';
+import { t } from '../../i18n.js';
 
 export function buildFrontPanel(container: HTMLDivElement, modal: ExportVaultModal) {
-	buildPanelHeading(container, 'Front matter');
+	buildPanelHeading(container, t('panel-front-matter'));
 	buildCoverPageSection(container, modal);
 	buildTableOfContentsSection(container, modal);
 }
 
 function buildCoverPageSection(container: HTMLDivElement, modal: ExportVaultModal) {
 	const section = container.createDiv({ cls: 'export-modal__section' });
-	buildSectionHeading(section, 'Cover page');
+	buildSectionHeading(section, t('section-cover-page'));
 
-	const coverToggle = createToggleRow(section, 'Enable cover page', true);
+	const coverToggle = createToggleRow(section, t('toggle-enable-cover'), true);
 	coverToggle.addEventListener('change', () => {
 		modal.enableCoverPage = coverToggle.checked;
 		coverFields.classList.toggle('is-hidden', !coverToggle.checked);
 	});
 
 	const coverFields = section.createDiv({ cls: 'export-modal__field-stack' });
-	createToggleRow(coverFields, 'Use book metadata', true).addEventListener('change', (e) => {
+	createToggleRow(coverFields, t('toggle-use-metadata'), true).addEventListener('change', (e) => {
 		modal.useBookMetadata = (e.target as HTMLInputElement).checked;
 	});
-	createPathField(coverFields, 'Cover image (vault path)', modal.coverImagePath, 'Select image', (display) => {
+	createPathField(coverFields, t('field-cover-image'), modal.coverImagePath, t('btn-select-image'), (display) => {
 		const fileInput = activeDocument.createElement('input');
 		fileInput.type = 'file';
 		fileInput.accept = 'image/*';
@@ -45,8 +46,8 @@ function buildCoverPageSection(container: HTMLDivElement, modal: ExportVaultModa
 				}
 			}
 			modal.coverImagePath = file.name;
-			display.textContent = file.name + ' (will try to resolve)';
-			new Notice('Cover image path may not resolve correctly. Use a vault-relative path.');
+			display.textContent = file.name + ' ' + t('will-try-resolve');
+			new Notice(t('notice-cover-path'));
 		});
 		fileInput.click();
 	});
@@ -56,9 +57,9 @@ function buildTableOfContentsSection(container: HTMLDivElement, modal: ExportVau
 	const section = container.createDiv({
 		cls: 'export-modal__section export-modal__section--bordered',
 	});
-	buildSectionHeading(section, 'Table of contents');
+	buildSectionHeading(section, t('section-toc'));
 
-	const tocToggle = createToggleRow(section, 'Enable TOC', modal.enableToc);
+	const tocToggle = createToggleRow(section, t('toggle-enable-toc'), modal.enableToc);
 	const tocFields = section.createDiv({ cls: 'export-modal__grid' });
 	tocFields.classList.toggle('is-hidden', !modal.enableToc);
 	tocToggle.addEventListener('change', () => {
@@ -67,7 +68,7 @@ function buildTableOfContentsSection(container: HTMLDivElement, modal: ExportVau
 	});
 
 	const depthField = tocFields.createDiv();
-	buildFieldLabel(depthField, 'Depth');
+	buildFieldLabel(depthField, t('field-depth'));
 	const depthSelect = depthField.createEl('select');
 	[1, 2, 3, 4, 5, 6].forEach((depth) => {
 		depthSelect.createEl('option', { value: String(depth), text: String(depth) });
@@ -77,7 +78,7 @@ function buildTableOfContentsSection(container: HTMLDivElement, modal: ExportVau
 		modal.tocDepth = Number(depthSelect.value);
 	});
 
-	createTextField(tocFields, 'Title', modal.tocTitle, (value) => {
+	createTextField(tocFields, t('field-title'), modal.tocTitle, (value) => {
 		modal.tocTitle = value;
 	});
 }

@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import type { ExportConfig, FontFamily, HeadingMapping, PageNumberPosition } from './types.js';
 import DocumentExportPlugin from './main.js';
+import { t } from './i18n.js';
 
 export type DocumentExportSettings = ExportConfig;
 
@@ -70,7 +71,7 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 		const settings = this.plugin.settings;
 
 		containerEl.empty();
-		new Setting(containerEl).setName("Default export presets").setHeading();
+		new Setting(containerEl).setName(t('settings-default-presets')).setHeading();
 
 		this.buildSourceSection(containerEl, settings);
 		this.buildStructureSection(containerEl, settings);
@@ -92,14 +93,14 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 	}
 
 	private buildSourceSection(containerEl: HTMLElement, settings: DocumentExportSettings) {
-		const section = this.buildSection(containerEl, 'Source defaults');
+		const section = this.buildSection(containerEl, t('settings-source'));
 
 		new Setting(section)
-			.setName('Source mode')
-			.setDesc('Default starting source for export')
+			.setName(t('settings-source-mode'))
+			.setDesc(t('settings-source-mode-desc'))
 			.addDropdown((dropdown) => {
-				dropdown.addOption('manual', 'Build manually');
-				dropdown.addOption('manifest', 'Use index note');
+				dropdown.addOption('manual', t('radio-build-manually'));
+				dropdown.addOption('manifest', t('radio-index-note'));
 				dropdown.setValue(settings.source.mode);
 					dropdown.onChange((value) => {
 						settings.source.mode = value as 'manual' | 'manifest';
@@ -108,11 +109,11 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(section)
-			.setName('Index note path')
-			.setDesc('Default note used when source mode is set to manifest')
+			.setName(t('settings-index-path'))
+			.setDesc(t('settings-index-path-desc'))
 			.addText((text) =>
 				text
-					.setPlaceholder('path/to/index.md')
+					.setPlaceholder(t('placeholder-index-path'))
 					.setValue(settings.source.indexNotePath)
 					.onChange((value) => {
 						settings.source.indexNotePath = value;
@@ -121,7 +122,7 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(section)
-			.setName('Default book title')
+			.setName(t('settings-book-title'))
 			.addText((text) =>
 				text
 					.setValue(settings.source.metadata.title)
@@ -132,7 +133,7 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(section)
-			.setName('Default subtitle')
+			.setName(t('settings-subtitle'))
 			.addText((text) =>
 				text
 					.setValue(settings.source.metadata.subtitle)
@@ -143,7 +144,7 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(section)
-			.setName('Default author')
+			.setName(t('settings-author'))
 			.addText((text) =>
 				text
 					.setValue(settings.source.metadata.author)
@@ -155,11 +156,11 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 	}
 
 	private buildStructureSection(containerEl: HTMLElement, settings: DocumentExportSettings) {
-		const section = this.buildSection(containerEl, 'Structure defaults');
+		const section = this.buildSection(containerEl, t('settings-structure'));
 
 		new Setting(section)
-			.setName('New chapter per note')
-			.setDesc('Start a new chapter for each selected note')
+			.setName(t('settings-new-chapter'))
+			.setDesc(t('settings-new-chapter-desc'))
 			.addToggle((toggle) => {
 				toggle.setValue(settings.structure.newChapterPerNote);
 				toggle.onChange((value) => {
@@ -178,19 +179,19 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 		] as const;
 
 		const headingOptions: { value: HeadingMapping; label: string }[] = [
-			{ value: 'part', label: 'Part' },
-			{ value: 'chapter', label: 'Chapter' },
-			{ value: 'section', label: 'Section' },
-			{ value: 'subsection', label: 'Subsection' },
-			{ value: 'inline', label: 'Keep inline' },
-			{ value: 'paragraph', label: 'Paragraph' },
-			{ value: 'bold', label: 'Bold text' },
-			{ value: 'italic', label: 'Italic' },
+			{ value: 'part', label: t('heading-part') },
+			{ value: 'chapter', label: t('heading-chapter') },
+			{ value: 'section', label: t('heading-section') },
+			{ value: 'subsection', label: t('heading-subsection') },
+			{ value: 'inline', label: t('heading-inline') },
+			{ value: 'paragraph', label: t('heading-paragraph') },
+			{ value: 'bold', label: t('heading-bold') },
+			{ value: 'italic', label: t('heading-italic') },
 		];
 
 		levelMap.forEach((level) => {
 			new Setting(section)
-				.setName(`${level.label} mapping`)
+				.setName(t('settings-heading-mapping', { level: level.label }))
 				.addDropdown((dropdown) => {
 					for (const option of headingOptions) {
 						dropdown.addOption(option.value, option.label);
@@ -204,12 +205,12 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 		});
 
 		new Setting(section)
-			.setName('Wikilinks')
-			.setDesc('How [[links]] are resolved in the exported book')
+			.setName(t('settings-wikilinks'))
+			.setDesc(t('settings-wikilinks-desc'))
 			.addDropdown((dropdown) => {
-				dropdown.addOption('resolve', 'Resolve to note title');
-				dropdown.addOption('raw', 'Keep as raw text');
-				dropdown.addOption('strip', 'Strip references');
+				dropdown.addOption('resolve', t('dropdown-resolve'));
+				dropdown.addOption('raw', t('dropdown-raw'));
+				dropdown.addOption('strip', t('dropdown-strip'));
 				dropdown.setValue(settings.structure.wikilinkMode);
 				dropdown.onChange((value) => {
 					settings.structure.wikilinkMode = value;
@@ -218,12 +219,12 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(section)
-			.setName('Tags')
-			.setDesc('How tags are exported')
+			.setName(t('settings-tags'))
+			.setDesc(t('settings-tags-desc'))
 			.addDropdown((dropdown) => {
-				dropdown.addOption('keep', 'Keep as text');
-				dropdown.addOption('bold', 'Convert to bold');
-				dropdown.addOption('strip', 'Strip tags');
+				dropdown.addOption('keep', t('dropdown-keep-text'));
+				dropdown.addOption('bold', t('dropdown-convert-bold'));
+				dropdown.addOption('strip', t('dropdown-strip-tags'));
 				dropdown.setValue(settings.structure.tagMode);
 				dropdown.onChange((value) => {
 					settings.structure.tagMode = value;
@@ -232,10 +233,10 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(section)
-			.setName('Note name')
-			.setDesc('How note titles are rendered in exports')
+			.setName(t('settings-note-name'))
+			.setDesc(t('settings-note-name-desc'))
 			.addDropdown((dropdown) => {
-				dropdown.addOption('none', 'None');
+				dropdown.addOption('none', t('dropdown-none'));
 				for (const option of headingOptions) {
 					dropdown.addOption(option.value, option.label);
 				}
@@ -248,10 +249,10 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 	}
 
 	private buildFrontMatterSection(containerEl: HTMLElement, settings: DocumentExportSettings) {
-		const section = this.buildSection(containerEl, 'Front matter defaults');
+		const section = this.buildSection(containerEl, t('settings-front-matter'));
 
 		new Setting(section)
-			.setName('Enable cover page')
+			.setName(t('settings-enable-cover'))
 			.addToggle((toggle) => {
 				toggle.setValue(settings.frontMatter.enableCoverPage);
 				toggle.onChange((value) => {
@@ -261,7 +262,7 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(section)
-			.setName('Use book metadata')
+			.setName(t('settings-use-metadata'))
 			.addToggle((toggle) => {
 				toggle.setValue(settings.frontMatter.useBookMetadata);
 				toggle.onChange((value) => {
@@ -271,8 +272,8 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(section)
-			.setName('Cover image path')
-			.setDesc('Vault-relative path to a default cover image')
+			.setName(t('settings-cover-path'))
+			.setDesc(t('settings-cover-path-desc'))
 			.addText((text) =>
 				text
 					.setPlaceholder('path/to/image.png')
@@ -284,7 +285,7 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(section)
-			.setName('Enable table of contents')
+			.setName(t('settings-enable-toc'))
 			.addToggle((toggle) => {
 				toggle.setValue(settings.frontMatter.toc.enabled);
 				toggle.onChange((value) => {
@@ -294,7 +295,7 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(section)
-			.setName('Table of contents depth')
+			.setName(t('settings-toc-depth'))
 			.addDropdown((dropdown) => {
 				for (let depth = 1; depth <= 6; depth++) {
 					dropdown.addOption(String(depth), String(depth));
@@ -307,7 +308,7 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(section)
-			.setName('Table of contents title')
+			.setName(t('settings-toc-title'))
 			.addText((text) =>
 				text
 					.setValue(settings.frontMatter.toc.title)
@@ -319,10 +320,10 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 	}
 
 	private buildOutputSection(containerEl: HTMLElement, settings: DocumentExportSettings) {
-		const section = this.buildSection(containerEl, 'Output defaults');
+		const section = this.buildSection(containerEl, t('settings-output'));
 
 		new Setting(section)
-			.setName('Export PDF')
+			.setName(t('settings-export-pdf'))
 			.addToggle((toggle) => {
 				toggle.setValue(settings.output.formats.pdf);
 				toggle.onChange((value) => {
@@ -332,7 +333,7 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(section)
-			.setName('Export docx')
+			.setName(t('settings-export-docx'))
 			.addToggle((toggle) => {
 				toggle.setValue(settings.output.formats.docx);
 				toggle.onChange((value) => {
@@ -342,7 +343,7 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(section)
-			.setName('Export LaTeX')
+			.setName(t('settings-export-latex'))
 			.addToggle((toggle) => {
 				toggle.setValue(settings.output.formats.latex);
 				toggle.onChange((value) => {
@@ -352,8 +353,8 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(section)
-			.setName('Save path')
-			.setDesc('Default vault-relative folder for exported files')
+			.setName(t('settings-save-path'))
+			.setDesc(t('settings-save-path-desc'))
 			.addText((text) =>
 				text
 					.setPlaceholder('(Vault root)')
@@ -366,10 +367,10 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 	}
 
 	private buildFormattingSection(containerEl: HTMLElement, settings: DocumentExportSettings) {
-		const section = this.buildSection(containerEl, 'Formatting defaults');
+		const section = this.buildSection(containerEl, t('settings-formatting'));
 
 		new Setting(section)
-			.setName('Font')
+			.setName(t('settings-font'))
 			.addDropdown((dropdown) => {
 				const fontOptions = [{
 					value: 'times-new-roman',
@@ -407,7 +408,7 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(section)
-			.setName('Base font size')
+			.setName(t('settings-font-size'))
 			.addDropdown((dropdown) => {
 				for (let size = 8; size <= 14; size++) {
 					dropdown.addOption(String(size), `${size} pt`);
@@ -420,7 +421,7 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(section)
-			.setName('Page numbers')
+			.setName(t('settings-page-numbers'))
 			.addToggle((toggle) => {
 				toggle.setValue(settings.formatting.pageNumbers.enabled);
 				toggle.onChange((value) => {
@@ -430,26 +431,26 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(section)
-			.setName('Page number position')
+			.setName(t('settings-page-position'))
 			.addDropdown((dropdown) => {
 				const positionOptions = [{
 					value: 'bottom-center',
-					label: 'Bottom center',
+					label: t('pos-bottom-center'),
 				}, {
 					value: 'bottom-left',
-					label: 'Bottom left',
+					label: t('pos-bottom-left'),
 				}, {
 					value: 'bottom-right',
-					label: 'Bottom right',
+					label: t('pos-bottom-right'),
 				}, {
 					value: 'top-center',
-					label: 'Top center',
+					label: t('pos-top-center'),
 				}, {
 					value: 'top-left',
-					label: 'Top left',
+					label: t('pos-top-left'),
 				}, {
 					value: 'top-right',
-					label: 'Top right',
+					label: t('pos-top-right'),
 				}];
 				for (const opt of positionOptions) {
 					dropdown.addOption(opt.value, opt.label);

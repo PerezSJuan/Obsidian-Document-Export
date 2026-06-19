@@ -4,6 +4,7 @@ import { buildSourcePanel } from './panels/source.js';
 import { buildStructurePanel } from './panels/structure.js';
 import { buildFrontPanel } from './panels/front.js';
 import { buildOutputPanel } from './panels/output.js';
+import { t } from '../i18n.js';
 
 export class ExportVaultModal extends Modal {
 	public onExport?: (config: ExportConfig) => Promise<void>;
@@ -113,7 +114,7 @@ export class ExportVaultModal extends Modal {
 	private buildHeader(container: HTMLElement) {
 		const header = container.createDiv({ cls: 'export-modal__header' });
 		header.createEl('h2', {
-			text: 'Export vault to book',
+			text: t('modal-title'),
 			cls: 'export-modal__title',
 		});
 	}
@@ -123,10 +124,10 @@ export class ExportVaultModal extends Modal {
 		panelMap: Record<PanelId, HTMLDivElement>,
 	): Record<PanelId, HTMLDivElement> {
 		const navItems: { id: PanelId; label: string; icon: string }[] = [
-			{ id: 'source', label: 'Source', icon: 'ti ti-folder' },
-			{ id: 'structure', label: 'Structure', icon: 'ti ti-hierarchy' },
-			{ id: 'front', label: 'Front matter', icon: 'ti ti-file-text' },
-			{ id: 'output', label: 'Output', icon: 'ti ti-download' },
+			{ id: 'source', label: t('nav-source'), icon: 'ti ti-folder' },
+			{ id: 'structure', label: t('nav-structure'), icon: 'ti ti-hierarchy' },
+			{ id: 'front', label: t('nav-front-matter'), icon: 'ti ti-file-text' },
+			{ id: 'output', label: t('nav-output'), icon: 'ti ti-download' },
 		];
 
 		const navMap = {} as Record<PanelId, HTMLDivElement>;
@@ -157,26 +158,26 @@ export class ExportVaultModal extends Modal {
 
 	private buildFooter(container: HTMLElement) {
 		const footer = container.createDiv({ cls: 'export-modal__footer' });
-		const cancelBtn = footer.createEl('button', { text: 'Cancel' });
+		const cancelBtn = footer.createEl('button', { text: t('btn-cancel') });
 		cancelBtn.addEventListener('click', () => this.close());
 
 		const exportBtn = footer.createEl('button', {
-			text: 'Export book',
+			text: t('btn-export'),
 			cls: 'mod-cta',
 		});
 		exportBtn.addEventListener('click', () => {
 			if (!this.onExport) {
-				new Notice('Export pipeline not configured');
+				new Notice(t('notice-no-pipeline'));
 				this.close();
 				return;
 			}
 			exportBtn.disabled = true;
-			exportBtn.textContent = 'Exporting...';
+			exportBtn.textContent = t('btn-exporting');
 			this.onExport(this.getConfig()).then(() => {
 				this.close();
 			}).catch((err) => {
 				console.error(err);
-				new Notice('Export failed: ' + ((err as Error).message || 'Unknown error'));
+				new Notice(t('notice-export-failed') + ': ' + ((err as Error).message || t('unknown-error')));
 				this.close();
 			});
 		});

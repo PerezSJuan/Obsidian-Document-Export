@@ -1,16 +1,17 @@
 import { App } from 'obsidian';
 import type { HeadingMappingOption } from '../types.js';
+import { t } from '../i18n.js';
 
 export function getHeadingMappingOptions(): HeadingMappingOption[] {
 	return [
-		{ value: 'part', label: 'Part' },
-		{ value: 'chapter', label: 'Chapter' },
-		{ value: 'section', label: 'Section' },
-		{ value: 'subsection', label: 'Subsection' },
-		{ value: 'inline', label: 'Keep inline' },
-		{ value: 'paragraph', label: 'Paragraph' },
-		{ value: 'bold', label: 'Bold text' },
-		{ value: 'italic', label: 'Italic' },
+		{ value: 'part', label: t('heading-part') },
+		{ value: 'chapter', label: t('heading-chapter') },
+		{ value: 'section', label: t('heading-section') },
+		{ value: 'subsection', label: t('heading-subsection') },
+		{ value: 'inline', label: t('heading-inline') },
+		{ value: 'paragraph', label: t('heading-paragraph') },
+		{ value: 'bold', label: t('heading-bold') },
+		{ value: 'italic', label: t('heading-italic') },
 	];
 }
 
@@ -79,7 +80,7 @@ export function createPathField(
 	buildFieldLabel(field, label);
 	const row = field.createDiv({ cls: 'export-modal__path-row' });
 	const display = row.createEl('span', {
-		text: value || '(not set)',
+		text: value || t('not-set'),
 		cls: 'export-modal__path-text',
 	});
 	row.createEl('button', { text: buttonText }).addEventListener('click', () => onBrowse(display));
