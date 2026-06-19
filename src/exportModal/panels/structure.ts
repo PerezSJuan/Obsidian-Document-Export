@@ -30,6 +30,8 @@ function buildHeadingMappingSection(container: HTMLDivElement, modal: ExportVaul
 		{ id: 'lvl2', tag: 'H2' },
 		{ id: 'lvl3', tag: 'H3' },
 		{ id: 'lvl4', tag: 'H4' },
+		{ id: 'lvl5', tag: 'H5' },
+		{ id: 'lvl6', tag: 'H6' },
 	];
 
 	levels.forEach((level) => {

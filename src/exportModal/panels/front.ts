@@ -68,7 +68,7 @@ function buildTableOfContentsSection(container: HTMLDivElement, modal: ExportVau
 	const depthField = tocFields.createDiv();
 	buildFieldLabel(depthField, 'Depth');
 	const depthSelect = depthField.createEl('select');
-	[1, 2, 3, 4].forEach((depth) => {
+	[1, 2, 3, 4, 5, 6].forEach((depth) => {
 		depthSelect.createEl('option', { value: String(depth), text: String(depth) });
 	});
 	depthSelect.value = String(modal.tocDepth);

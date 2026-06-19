@@ -20,6 +20,8 @@ export class ExportVaultModal extends Modal {
 		lvl2: 'section',
 		lvl3: 'subsection',
 		lvl4: 'inline',
+		lvl5: 'inline',
+		lvl6: 'inline',
 	};
 	public manualNotesListEl?: HTMLUListElement;
 	public manifestSectionEl?: HTMLDivElement;

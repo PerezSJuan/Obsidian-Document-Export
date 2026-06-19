@@ -18,7 +18,7 @@
 	"dependencies": {
 		"docx": "^9.7.1",
 		"marked": "^18.0.5",
-		"pdfkit": "^0.19.1"
+		"pdf-lib": "^1.17.1"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.39.4",
