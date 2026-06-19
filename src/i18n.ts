@@ -369,6 +369,11 @@ const dict: Record<string, LangDict> = {
   'will-try-resolve': {
     es: '(se intentará resolver)', en: '(will try to resolve)', fr: '(sera résolu si possible)', de: '(wird versucht aufzulösen)',
     it: '(verrà tentata la risoluzione)', pt: '(tentará resolver)', nl: '(zal proberen op te lossen)',
+    ru: '(будет предпринята попытка разрешить)', zh: '(将尝试解析)', ja: '(解決を試みます)', ko: '(해결을 시도합니다)',
+    ar: '(سيتم محاولة الحل)', hi: '(हल करने का प्रयास करेगा)', tr: '(çözülmeye çalışılacak)',
+    pl: '(zostanie podjęta próba rozwiązania)', sv: '(kommer att försöka lösa)', vi: '(sẽ cố gắng giải quyết)',
+    th: '(จะพยายามแก้ไข)', id: '(akan mencoba menyelesaikan)', el: '(θα γίνει προσπάθεια επίλυσης)',
+    cs: '(bude se řešit)', ro: '(se va încerca rezolvarea)', hu: '(megpróbálja feloldani)', uk: '(буде зроблено спробу вирішити)',
   },
   'notice-cover-path': {
     es: 'La ruta de la imagen de portada puede no resolverse correctamente. Usa una ruta relativa a la bóveda.', en: 'Cover image path may not resolve correctly. Use a vault-relative path.',
@@ -393,7 +398,7 @@ const dict: Record<string, LangDict> = {
     cs: 'Obsah', ro: 'Cuprins', hu: 'Tartalomjegyzék', uk: 'Зміст',
   },
   'toggle-enable-toc': {
-    es: 'Activar tabla de contenidos', en: 'Enable TOC', fr: 'Activer la table des matières', de: 'Inhaltsverzeichnis aktivieren',
+    es: 'Activar tabla de contenidos', en: 'Enable table of contents', fr: 'Activer la table des matières', de: 'Inhaltsverzeichnis aktivieren',
     it: 'Attiva indice', pt: 'Ativar índice', nl: 'Inhoudsopgave inschakelen', ru: 'Включить содержание',
     zh: '启用目录', ja: '目次を有効にする', ko: '목차 활성화', ar: 'تمكين جدول المحتويات',
     hi: 'विषय सूची सक्षम करें', tr: 'İçindekileri etkinleştir', pl: 'Włącz spis treści', sv: 'Aktivera innehållsförteckning',
@@ -910,7 +915,7 @@ const dict: Record<string, LangDict> = {
     hu: 'Hogyan jelennek meg a jegyzetcímek az exportokban', uk: 'Як відображаються назви нотаток в експорті',
   },
   'settings-front-matter': {
-    es: 'Configuración predeterminada', en: 'Front matter defaults', fr: 'Paramètres de préface par défaut', de: 'Standard-Vorspann',
+    es: 'Valores de preliminares', en: 'Front matter defaults', fr: 'Paramètres de préface par défaut', de: 'Standard-Vorspann',
     it: 'Impostazioni prefazione predefinite', pt: 'Padrões de frontispício', nl: 'Standaard voorwerk', ru: 'Настройки фронтисписа по умолчанию',
     zh: '前言默认值', ja: '前付のデフォルト', ko: '앞부분 기본값',
     ar: 'إعدادات المقدمة الافتراضية', hi: 'प्रारंभिक भाग डिफ़ॉल्ट', tr: 'Ön söz varsayılanları',
@@ -1005,7 +1010,7 @@ const dict: Record<string, LangDict> = {
     cs: 'Exportovat PDF', ro: 'Exportă PDF', hu: 'PDF exportálása', uk: 'Експорт PDF',
   },
   'settings-export-docx': {
-    es: 'Exportar DOCX', en: 'Export docx', fr: 'Exporter DOCX', de: 'DOCX exportieren',
+    es: 'Exportar DOCX', en: 'Export DOCX', fr: 'Exporter DOCX', de: 'DOCX exportieren',
     it: 'Esporta DOCX', pt: 'Exportar DOCX', nl: 'DOCX exporteren', ru: 'Экспорт DOCX',
     zh: '导出 DOCX', ja: 'DOCXをエクスポート', ko: 'DOCX 내보내기',
     ar: 'تصدير DOCX', hi: 'DOCX निर्यात करें', tr: 'DOCX dışa aktar',
