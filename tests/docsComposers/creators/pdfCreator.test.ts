@@ -83,22 +83,22 @@ describe('PdfCreator', () => {
   })
 
   describe('font embedding', () => {
-    it('references Helvetica font in PDF structure', async () => {
+    it('references Times-Roman font in PDF structure for times-new-roman', async () => {
       const buf = await createPdf('Hello')
       const content = buf.toString('latin1')
-      expect(content).toContain('/Helvetica')
+      expect(content).toContain('/Times-Roman')
     })
 
-    it('uses Helvetica-Bold for **bold** text', async () => {
+    it('uses Times-Bold for **bold** text', async () => {
       const buf = await createPdf('**bold**')
       const content = buf.toString('latin1')
-      expect(content).toContain('Helvetica-Bold')
+      expect(content).toContain('Times-Bold')
     })
 
-    it('uses Helvetica-Oblique for *italic* text', async () => {
+    it('uses Times-Italic for *italic* text', async () => {
       const buf = await createPdf('*italic*')
       const content = buf.toString('latin1')
-      expect(content).toContain('Helvetica-Oblique')
+      expect(content).toContain('Times-Italic')
     })
 
     it('uses Courier for inline code', async () => {
@@ -136,6 +136,113 @@ describe('PdfCreator', () => {
     })
   })
 
+  describe('tables', () => {
+    it('renders a basic table without crashing', async () => {
+      const md = '| H1 | H2 |\n| --- | --- |\n| A1 | B1 |\n| A2 | B2 |'
+      const buf = await createPdf(md)
+      expect(buf.subarray(0, 5).toString()).toBe('%PDF-')
+      expect(buf.length).toBeGreaterThan(300)
+    })
+
+    it('renders larger table as larger output', async () => {
+      const small = await createPdf('| A | B |\n| - | - |\n| 1 | 2 |')
+      const big = await createPdf('| A | B | C |\n| - | - | - |\n| 1 | 2 | 3 |\n| 4 | 5 | 6 |')
+      expect(big.length).toBeGreaterThan(small.length)
+    })
+  })
+
+  describe('images', () => {
+    it('handles image reference via asset resolver', async () => {
+      const md = '![alt](img.png)'
+      const buf = await createPdf(md)
+      expect(buf.subarray(0, 5).toString()).toBe('%PDF-')
+    })
+
+    it('handles multiple images', async () => {
+      const md = '![img1](a.png)\n\n![img2](b.png)'
+      const buf = await createPdf(md)
+      expect(buf.subarray(-6).toString()).toBe('%%EOF\n')
+    })
+  })
+
+  describe('blockquotes', () => {
+    it('renders a blockquote without crashing', async () => {
+      const buf = await createPdf('> A wise quote')
+      expect(buf.subarray(0, 5).toString()).toBe('%PDF-')
+    })
+
+    it('renders multi-line blockquote', async () => {
+      const buf = await createPdf('> Line 1\n> Line 2')
+      expect(buf.subarray(-6).toString()).toBe('%%EOF\n')
+    })
+  })
+
+  describe('horizontal rule', () => {
+    it('renders --- without crashing', async () => {
+      const buf = await createPdf('Text\n\n---\n\nMore')
+      expect(buf.subarray(0, 5).toString()).toBe('%PDF-')
+    })
+  })
+
+  describe('code blocks', () => {
+    it('renders code block with language', async () => {
+      const buf = await createPdf('```ts\nconst x: number = 1;\n```')
+      expect(buf.subarray(0, 5).toString()).toBe('%PDF-')
+    })
+  })
+
+  describe('lists', () => {
+    it('renders nested list items', async () => {
+      const md = '- Item 1\n  - Nested 1a\n  - Nested 1b\n- Item 2'
+      const buf = await createPdf(md)
+      expect(buf.subarray(0, 5).toString()).toBe('%PDF-')
+    })
+
+    it('renders ordered list', async () => {
+      const buf = await createPdf('1. First\n2. Second\n3. Third')
+      expect(buf.subarray(-6).toString()).toBe('%%EOF\n')
+    })
+  })
+
+  describe('formatting config', () => {
+    it('accepts font setting without error', async () => {
+      const buf = await createPdf('Hello', {
+        formatting: { font: 'arial', baseFontSize: 11, pageNumbers: { enabled: false, position: 'bottom-center' } },
+      })
+      expect(buf.subarray(0, 5).toString()).toBe('%PDF-')
+    })
+
+    it('accepts arial font and references Helvetica', async () => {
+      const buf = await createPdf('Hello', {
+        formatting: { font: 'arial', baseFontSize: 11, pageNumbers: { enabled: false, position: 'bottom-center' } },
+      })
+      const content = buf.toString('latin1')
+      expect(content).toContain('/Helvetica')
+    })
+
+    it('uses courier-new for monospace font setting', async () => {
+      const buf = await createPdf('Hello', {
+        formatting: { font: 'courier-new', baseFontSize: 11, pageNumbers: { enabled: false, position: 'bottom-center' } },
+      })
+      const content = buf.toString('latin1')
+      expect(content).toContain('/Courier')
+    })
+
+    it('accepts baseFontSize 14', async () => {
+      const buf = await createPdf('Hello', {
+        formatting: { font: 'times-new-roman', baseFontSize: 14, pageNumbers: { enabled: false, position: 'bottom-center' } },
+      })
+      expect(buf.subarray(0, 5).toString()).toBe('%PDF-')
+    })
+
+    it('accepts top-right page number position', async () => {
+      const buf = await createPdf('Hello\n\nWorld', {
+        formatting: { font: 'times-new-roman', baseFontSize: 11, pageNumbers: { enabled: true, position: 'top-right' } },
+      })
+      expect(buf.subarray(0, 5).toString()).toBe('%PDF-')
+    })
+  })
+
   describe('integration end-to-end', () => {
     it('renders full markdown with all element types', async () => {
       const md = [
@@ -159,9 +266,9 @@ describe('PdfCreator', () => {
       ].join('\n')
       const buf = await createPdf(md)
       const content = buf.toString('latin1')
-      expect(content).toContain('Helvetica-Bold')
-      expect(content).toContain('Helvetica-Oblique')
-      expect(content).toContain('Helvetica-BoldOblique')
+      expect(content).toContain('Times-Bold')
+      expect(content).toContain('Times-Italic')
+      expect(content).toContain('Times-BoldItalic')
       expect(content).toContain('Courier')
       expect(buf.subarray(-6).toString()).toBe('%%EOF\n')
     })

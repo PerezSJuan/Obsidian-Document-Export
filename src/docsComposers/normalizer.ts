@@ -1,8 +1,15 @@
 import { type NormalizedNote } from '../types.js'
 
+export interface NormalizeOptions {
+  wikilinkMode: string
+  tagMode: string
+  noteNameMode: string
+}
+
 export function normalizeNote(
   rawContent: string,
   path: string,
+  options?: NormalizeOptions,
 ): NormalizedNote {
   const { frontmatter, body } = parseFrontmatter(rawContent)
   const title = resolveTitle(frontmatter, path)
@@ -12,7 +19,8 @@ export function normalizeNote(
   content = blockedContent
   content = removeObsidianComments(content)
   content = convertHighlights(content)
-  content = convertWikilinks(content)
+  content = convertWikilinks(content, options?.wikilinkMode)
+  content = convertTags(content, options?.tagMode)
   content = convertImageEmbeds(content)
   content = simplifyCallouts(content)
   content = restoreCodeBlocks(content, protectedBlocks)
@@ -133,7 +141,13 @@ function convertHighlights(content: string): string {
   return content.replace(/==([^=]+)==/g, '<mark>$1</mark>')
 }
 
-function convertWikilinks(content: string): string {
+function convertWikilinks(content: string, mode = 'resolve'): string {
+  if (mode === 'strip') {
+    return content.replace(/\[\[([^|[\]]+)(?:\|([^[\]]+))?\]\]/g, '')
+  }
+  if (mode === 'raw') {
+    return content
+  }
   return content.replace(
     /\[\[([^|[\]]+)(?:\|([^[\]]+))?\]\]/g,
     (_match, link: string, display?: string) => {
@@ -142,6 +156,16 @@ function convertWikilinks(content: string): string {
       return `[${text}](${href})`
     },
   )
+}
+
+function convertTags(content: string, mode = 'keep'): string {
+  if (mode === 'strip') {
+    return content.replace(/#[\w/:-]+/g, '')
+  }
+  if (mode === 'bold') {
+    return content.replace(/#[\w/:-]+/g, (match) => `**${match}**`)
+  }
+  return content
 }
 
 function convertImageEmbeds(content: string): string {

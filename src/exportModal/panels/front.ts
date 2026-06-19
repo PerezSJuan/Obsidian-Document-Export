@@ -1,5 +1,7 @@
+import { Notice } from 'obsidian';
 import type { ExportVaultModal } from '../modal.js';
 import { buildPanelHeading, buildSectionHeading, buildFieldLabel, createToggleRow, createPathField, createTextField } from '../helpers.js';
+import { normalizeVaultRelativePath } from '../../utils/vaultPath.js';
 
 export function buildFrontPanel(container: HTMLDivElement, modal: ExportVaultModal) {
 	buildPanelHeading(container, 'Front matter');
@@ -21,7 +23,7 @@ function buildCoverPageSection(container: HTMLDivElement, modal: ExportVaultModa
 	createToggleRow(coverFields, 'Use book metadata', true).addEventListener('change', (e) => {
 		modal.useBookMetadata = (e.target as HTMLInputElement).checked;
 	});
-	createPathField(coverFields, 'Cover image', modal.coverImagePath, 'Select image', (display) => {
+	createPathField(coverFields, 'Cover image (vault path)', modal.coverImagePath, 'Select image', (display) => {
 		const fileInput = activeDocument.createElement('input');
 		fileInput.type = 'file';
 		fileInput.accept = 'image/*';
@@ -30,10 +32,21 @@ function buildCoverPageSection(container: HTMLDivElement, modal: ExportVaultModa
 		fileInput.addEventListener('change', () => {
 			activeDocument.body.removeChild(fileInput);
 			if (!fileInput.files?.length) return;
-			const file = fileInput.files[0];
+			const file = fileInput.files[0] as File & { path?: string };
 			if (!file) return;
+			const fullPath = file.path;
+			if (fullPath) {
+				const basePath = (modal.app.vault.adapter as { getBasePath?(): string }).getBasePath?.() || '';
+				const relative = normalizeVaultRelativePath(fullPath, basePath);
+				if (relative) {
+					modal.coverImagePath = relative;
+					display.textContent = relative;
+					return;
+				}
+			}
 			modal.coverImagePath = file.name;
-			display.textContent = file.name;
+			display.textContent = file.name + ' (will try to resolve)';
+			new Notice('Cover image path may not resolve correctly. Use a vault-relative path.');
 		});
 		fileInput.click();
 	});

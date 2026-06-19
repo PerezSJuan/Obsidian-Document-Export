@@ -1,6 +1,8 @@
+import { Notice } from 'obsidian';
 import type { ExportVaultModal } from '../modal.js';
 import type { FontFamily, PageNumberPosition } from '../../types.js';
 import { buildPanelHeading, buildSectionHeading, createPathField, createSelectField, createToggleRow } from '../helpers.js';
+import { normalizeVaultRelativePath } from '../../utils/vaultPath.js';
 
 interface ElectronDialog {
 	showOpenDialog(options: { properties: string[] }): Promise<{
@@ -41,15 +43,26 @@ function buildFormatSection(container: HTMLDivElement, modal: ExportVaultModal) 
 }
 
 function tryElectronDialog(modal: ExportVaultModal, display: HTMLElement): void {
-	const electron = (window as { require?(name: string): { remote?: { dialog?: ElectronDialog }; dialog?: ElectronDialog } }).require?.('electron');
+	let electron: { remote?: { dialog?: ElectronDialog }; dialog?: ElectronDialog } | undefined;
+	try {
+		electron = (window as { require?(name: string): { remote?: { dialog?: ElectronDialog }; dialog?: ElectronDialog } }).require?.('electron');
+	} catch {
+		return;
+	}
 	const dialog = electron?.remote?.dialog || electron?.dialog;
 	if (!dialog?.showOpenDialog) return;
 	dialog.showOpenDialog({ properties: ['openDirectory'] }).then((result) => {
 		if (result.canceled || !result.filePaths.length) return;
 		const dir = result.filePaths[0];
 		if (!dir) return;
-		modal.savePath = dir;
-		display.textContent = dir;
+		const basePath = (modal.app.vault.adapter as { getBasePath?(): string }).getBasePath?.() || '';
+		const relative = normalizeVaultRelativePath(dir, basePath);
+		if (!relative && dir !== basePath) {
+			new Notice('Select a folder inside the vault');
+			return;
+		}
+		modal.savePath = relative;
+		display.textContent = relative || '(vault root)';
 	}).catch(() => undefined);
 }
 
@@ -67,8 +80,14 @@ function tryWebkitDialog(modal: ExportVaultModal, display: HTMLElement): void {
 		const file = rawFile as FileWithPath;
 		const dir = file.path?.substring(0, file.path.lastIndexOf('/')) || file.webkitRelativePath.substring(0, file.webkitRelativePath.lastIndexOf('/'));
 		if (!dir) return;
-		modal.savePath = dir;
-		display.textContent = dir;
+		const basePath = (modal.app.vault.adapter as { getBasePath?(): string }).getBasePath?.() || '';
+		const relative = normalizeVaultRelativePath(dir, basePath);
+		if (!relative && dir !== basePath) {
+			new Notice('Select a folder inside the vault');
+			return;
+		}
+		modal.savePath = relative;
+		display.textContent = relative || '(vault root)';
 	});
 	fileInput.click();
 }
@@ -125,7 +144,7 @@ function buildSavePathSection(container: HTMLDivElement, modal: ExportVaultModal
 		cls: 'export-modal__section export-modal__section--bordered',
 	});
 	buildSectionHeading(section, 'Save path');
-	createPathField(section, 'Save to', modal.savePath, 'Browse', (display) => {
+	createPathField(section, 'Save to', modal.savePath || '(vault root)', 'Browse', (display) => {
 		tryElectronDialog(modal, display);
 		tryWebkitDialog(modal, display);
 	});

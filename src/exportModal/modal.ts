@@ -6,6 +6,7 @@ import { buildFrontPanel } from './panels/front.js';
 import { buildOutputPanel } from './panels/output.js';
 
 export class ExportVaultModal extends Modal {
+	public onExport?: (config: ExportConfig) => Promise<void>;
 	public currentPanel: PanelId = 'source';
 	public contentMode: ContentMode = 'manual';
 	public selectedNotes: string[] = [];
@@ -45,7 +46,6 @@ export class ExportVaultModal extends Modal {
 
 	constructor(app: App) {
 		super(app);
-		this.savePath = (app.vault.adapter as { getBasePath?(): string }).getBasePath?.() || '';
 	}
 
 	onOpen() {
@@ -139,8 +139,20 @@ export class ExportVaultModal extends Modal {
 			cls: 'mod-cta',
 		});
 		exportBtn.addEventListener('click', () => {
-			new Notice('Export not yet implemented');
-			this.close();
+			if (!this.onExport) {
+				new Notice('Export pipeline not configured');
+				this.close();
+				return;
+			}
+			exportBtn.disabled = true;
+			exportBtn.textContent = 'Exporting...';
+			this.onExport(this.getConfig()).then(() => {
+				this.close();
+			}).catch((err) => {
+				console.error(err);
+				new Notice('Export failed: ' + ((err as Error).message || 'Unknown error'));
+				this.close();
+			});
 		});
 	}
 

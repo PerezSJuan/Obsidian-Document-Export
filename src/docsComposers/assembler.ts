@@ -1,11 +1,11 @@
-import { type NormalizedNote, type ExportConfig, type HeadingMapping } from '../types.js'
+import { type NormalizedNote, type ExportConfig } from '../types.js'
 
 export function assemble(
   notes: NormalizedNote[],
   config: ExportConfig,
 ): string {
   const frontmatter = buildFrontmatter(config)
-  const body = buildBody(notes, config)
+  const body = buildBody(notes)
   return `---\n${frontmatter}---\n\n${body}`
 }
 
@@ -38,42 +38,16 @@ function buildFrontmatter(config: ExportConfig): string {
 
 function buildBody(
   notes: NormalizedNote[],
-  config: ExportConfig,
 ): string {
-  const offset = computeHeadingOffset(config.structure.headingMapping)
   const parts: string[] = []
 
   for (const note of notes) {
-    let content = note.content.trim()
+    const content = note.content.trim()
     if (!content) continue
-    if (offset !== 0) {
-      content = shiftHeadings(content, offset)
-    }
     parts.push(content)
   }
 
   return parts.join('\n\n')
-}
-
-function computeHeadingOffset(
-  headingMapping: Record<string, HeadingMapping>,
-): number {
-  const levelKeys = ['lvl1', 'lvl2', 'lvl3', 'lvl4', 'lvl5', 'lvl6']
-  for (let i = 0; i < levelKeys.length; i++) {
-    const role = headingMapping[levelKeys[i]!]
-    if (role && role !== 'paragraph' && role !== 'bold' && role !== 'italic') {
-      return i
-    }
-  }
-  return 0
-}
-
-function shiftHeadings(content: string, offset: number): string {
-  if (offset === 0) return content
-  return content.replace(/^(#+)/gm, (_match, hashes: string) => {
-    const newLevel = Math.min(hashes.length + offset, 6)
-    return '#'.repeat(newLevel)
-  })
 }
 
 function formatYamlValue(value: string): string {

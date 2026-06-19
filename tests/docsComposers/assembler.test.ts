@@ -244,29 +244,29 @@ describe('assemble', () => {
     })
   })
 
-  describe('heading offset', () => {
-    it('shifts headings up when first mapping is lvl2', () => {
+  describe('heading passthrough', () => {
+    it('preserves heading levels unchanged with any mapping', () => {
       const config = {
         ...defaultConfig,
         structure: { ...defaultConfig.structure, headingMapping: { lvl2: 'chapter' } as const },
       }
       const result = assemble([note('# Título\n\n## Sección')], config)
-      expect(result).toContain('## Título')
-      expect(result).toContain('### Sección')
+      expect(result).toContain('# Título')
+      expect(result).toContain('## Sección')
     })
 
-    it('shifts headings when first mapping is lvl3', () => {
+    it('preserves headings when first mapping is lvl3', () => {
       const config = {
         ...defaultConfig,
         structure: { ...defaultConfig.structure, headingMapping: { lvl3: 'subsection' } as const },
       }
       const result = assemble([note('# A\n\n## B\n\n### C')], config)
-      expect(result).toContain('### A')
-      expect(result).toContain('#### B')
-      expect(result).toContain('##### C')
+      expect(result).toContain('# A')
+      expect(result).toContain('## B')
+      expect(result).toContain('### C')
     })
 
-    it('does not shift when first mapping is lvl1', () => {
+    it('passes through headingMapping config (consumed by creators)', () => {
       const config = {
         ...defaultConfig,
         structure: { ...defaultConfig.structure, headingMapping: { lvl1: 'chapter' } as const },
@@ -276,29 +276,14 @@ describe('assemble', () => {
       expect(result).toContain('## Sección')
     })
 
-    it('does not shift when headingMapping is empty', () => {
-      const result = assemble([note('# Título')], defaultConfig)
-      expect(result).toContain('# Título')
-    })
-
-    it('caps heading level at 6', () => {
-      const config = {
-        ...defaultConfig,
-        structure: { ...defaultConfig.structure, headingMapping: { lvl5: 'part' } as const },
-      }
-      const result = assemble([note('###### h6\n\n####### not-h7')], config)
+    it('passes through all heading levels', () => {
+      const result = assemble([note('# h1\n\n## h2\n\n### h3\n\n#### h4\n\n##### h5\n\n###### h6')], defaultConfig)
+      expect(result).toContain('# h1')
+      expect(result).toContain('## h2')
+      expect(result).toContain('### h3')
+      expect(result).toContain('#### h4')
+      expect(result).toContain('##### h5')
       expect(result).toContain('###### h6')
-      expect(result).not.toContain('#######')
-    })
-
-    it('ignores paragraph/bold/italic roles when computing offset', () => {
-      const config = {
-        ...defaultConfig,
-        structure: { ...defaultConfig.structure, headingMapping: { lvl1: 'paragraph', lvl2: 'chapter' } as const },
-      }
-      const result = assemble([note('# Uno\n\n## Dos')], config)
-      expect(result).toContain('## Uno')
-      expect(result).toContain('### Dos')
     })
 
     it('preserves non-heading lines unchanged', () => {
@@ -308,39 +293,7 @@ describe('assemble', () => {
       }
       const result = assemble([note('Párrafo.\n\n# Título')], config)
       expect(result).toContain('Párrafo.')
-      expect(result).toContain('## Título')
-    })
-
-    it('shifts headings when first mapping is lvl4', () => {
-      const config = {
-        ...defaultConfig,
-        structure: { ...defaultConfig.structure, headingMapping: { lvl4: 'section' } as const },
-      }
-      const result = assemble([note('# a\n\n## b\n\n### c\n\n#### d')], config)
-      expect(result).toContain('#### a')
-      expect(result).toContain('##### b')
-      expect(result).toContain('###### c')
-      expect(result).toContain('###### d')
-    })
-
-    it('shifts headings when first mapping is lvl6', () => {
-      const config = {
-        ...defaultConfig,
-        structure: { ...defaultConfig.structure, headingMapping: { lvl6: 'part' } as const },
-      }
-      const result = assemble([note('# a\n\n## b')], config)
-      expect(result).toContain('###### a')
-      expect(result).toContain('###### b')
-    })
-
-    it('returns offset 0 when all roles are non-structural', () => {
-      const config = {
-        ...defaultConfig,
-        structure: { ...defaultConfig.structure, headingMapping: { lvl1: 'paragraph', lvl2: 'bold', lvl3: 'italic' } as const },
-      }
-      const result = assemble([note('# Título\n\n## Sección')], config)
       expect(result).toContain('# Título')
-      expect(result).toContain('## Sección')
     })
 
     it('preserves heading custom-id attributes', () => {
@@ -349,28 +302,14 @@ describe('assemble', () => {
         structure: { ...defaultConfig.structure, headingMapping: { lvl2: 'section' } as const },
       }
       const result = assemble([note('# Title {#my-id}')], config)
-      expect(result).toContain('## Title {#my-id}')
+      expect(result).toContain('# Title {#my-id}')
     })
 
-    it('applies offset to each note independently', () => {
-      const config = {
-        ...defaultConfig,
-        structure: { ...defaultConfig.structure, headingMapping: { lvl2: 'chapter' } as const },
-      }
-      const notes = [note('# A'), note('# B')]
-      const result = assemble(notes, config)
-      expect(result).toContain('## A')
+    it('handles each note independently', () => {
+      const notes = [note('# A'), note('## B')]
+      const result = assemble(notes, defaultConfig)
+      expect(result).toContain('# A')
       expect(result).toContain('## B')
-    })
-
-    it('does not change content when offset > 0 but no headings present', () => {
-      const config = {
-        ...defaultConfig,
-        structure: { ...defaultConfig.structure, headingMapping: { lvl2: 'section' } as const },
-      }
-      const result = assemble([note('Solo texto.\n\nMás texto.')], config)
-      expect(result).toContain('Solo texto.')
-      expect(result).toContain('Más texto.')
     })
   })
 
@@ -417,9 +356,9 @@ describe('assemble', () => {
 
       expect(result).toMatch(/title: Mi Libro/)
       expect(result).toMatch(/author: Yo/)
-      expect(result).toContain('## Intro')
+      expect(result).toContain('# Intro')
       expect(result).toContain('[otra-nota](otra-nota)')
-      expect(result).toContain('## Capítulo 2')
+      expect(result).toContain('# Capítulo 2')
       expect(result).toContain('<mark>importante</mark>')
     })
   })

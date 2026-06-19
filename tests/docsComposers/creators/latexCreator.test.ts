@@ -62,7 +62,7 @@ describe('LatexCreator', () => {
   describe('preamble', () => {
     it('includes documentclass and basic packages', async () => {
       const result = await createLatex('')
-      expect(result).toContain('\\documentclass{book}')
+      expect(result).toContain('\\documentclass[11pt]{book}')
       expect(result).toContain('\\usepackage[utf8]{inputenc}')
       expect(result).toContain('\\usepackage{graphicx}')
       expect(result).toContain('\\usepackage{hyperref}')
@@ -317,10 +317,70 @@ describe('LatexCreator', () => {
     })
   })
 
+  describe('tables', () => {
+    it('converts basic table to tabular', async () => {
+      const result = await createLatex('| H1 | H2 |\n| --- | --- |\n| A1 | B1 |')
+      expect(result).toContain('\\begin{tabular}')
+      expect(result).toContain('H1 & H2')
+      expect(result).toContain('A1 & B1')
+      expect(result).toContain('\\end{tabular}')
+    })
+
+    it('renders table with alignment', async () => {
+      const md = '| Left | Center | Right |\n| :--- | :---: | ---: |\n| L1 | C1 | R1 |'
+      const result = await createLatex(md)
+      expect(result).toContain('\\begin{tabular}')
+    })
+
+    it('renders larger table with more rows', async () => {
+      const small = await createLatex('| A |\n| - |\n| 1 |')
+      const big = await createLatex('| A | B | C |\n| - | - | - |\n| 1 | 2 | 3 |\n| 4 | 5 | 6 |\n| 7 | 8 | 9 |')
+      expect(big.length).toBeGreaterThan(small.length)
+    })
+  })
+
+  describe('formatting config', () => {
+    it('includes font package for times-new-roman', async () => {
+      const result = await createLatex('Hello', {
+        formatting: { font: 'times-new-roman', baseFontSize: 11, pageNumbers: { enabled: false, position: 'bottom-center' } },
+      })
+      expect(result).toContain('\\usepackage{mathptmx}')
+    })
+
+    it('includes font package for arial', async () => {
+      const result = await createLatex('Hello', {
+        formatting: { font: 'arial', baseFontSize: 11, pageNumbers: { enabled: false, position: 'bottom-center' } },
+      })
+      expect(result).toContain('\\usepackage{helvet}')
+    })
+
+    it('uses configured baseFontSize in documentclass', async () => {
+      const result = await createLatex('Hello', {
+        formatting: { font: 'times-new-roman', baseFontSize: 12, pageNumbers: { enabled: false, position: 'bottom-center' } },
+      })
+      expect(result).toContain('\\documentclass[12pt]{book}')
+    })
+
+    it('includes fancyhdr when page numbers enabled', async () => {
+      const result = await createLatex('Hello\n\nWorld', {
+        formatting: { font: 'times-new-roman', baseFontSize: 11, pageNumbers: { enabled: true, position: 'bottom-center' } },
+      })
+      expect(result).toContain('\\pagestyle{fancy}')
+      expect(result).toContain('\\fancyfoot[C]')
+    })
+
+    it('uses top-right position for page numbers', async () => {
+      const result = await createLatex('Hello\n\nWorld', {
+        formatting: { font: 'times-new-roman', baseFontSize: 11, pageNumbers: { enabled: true, position: 'top-right' } },
+      })
+      expect(result).toContain('\\fancyhead[R]')
+    })
+  })
+
   describe('document structure', () => {
     it('starts with preamble', async () => {
       const result = await createLatex('# Title')
-      expect(result.startsWith('\\documentclass{book}')).toBe(true)
+      expect(result.startsWith('\\documentclass[11pt]{book}')).toBe(true)
     })
 
     it('ends with \\end{document}', async () => {

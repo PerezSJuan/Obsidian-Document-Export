@@ -2,10 +2,11 @@ import type { ExportConfig } from '../types.js'
 import type { AssetResolver } from './creators/assetResolver.js'
 import type { Creator } from './creators/creator.js'
 
-interface ExportResult {
+export interface ExportResult {
   format: string
   fileName: string
   data: Buffer | string
+  extraFiles?: { name: string; data: ArrayBuffer }[]
 }
 
 export class ExportManager {
@@ -27,7 +28,7 @@ export class ExportManager {
       const creator = this.creators.get('latex')
       if (creator) {
         const result = await creator.render(bookMd, config, assets)
-        results.push({ format: 'latex', fileName: result.fileName, data: result.data })
+        results.push({ format: 'latex', fileName: result.fileName, data: result.data, extraFiles: result.extraFiles })
       }
     }
 
@@ -35,7 +36,7 @@ export class ExportManager {
       const creator = this.creators.get('pdf')
       if (creator) {
         const result = await creator.render(bookMd, config, assets)
-        results.push({ format: 'pdf', fileName: result.fileName, data: result.data })
+        results.push({ format: 'pdf', fileName: result.fileName, data: result.data, extraFiles: result.extraFiles })
       }
     }
 
@@ -43,7 +44,7 @@ export class ExportManager {
       const creator = this.creators.get('docx')
       if (creator) {
         const result = await creator.render(bookMd, config, assets)
-        results.push({ format: 'docx', fileName: result.fileName, data: result.data })
+        results.push({ format: 'docx', fileName: result.fileName, data: result.data, extraFiles: result.extraFiles })
       }
     }
 
