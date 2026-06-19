@@ -9,7 +9,7 @@ import { buildFieldLabel, buildSectionHeading, createToggleRow } from '../helper
 export function buildStructurePanel(container: HTMLDivElement, modal: ExportVaultModal) {
 	buildPanelHeading(container, 'Structure');
 
-	const newChapterToggle = createToggleRow(container, 'Start a new chapter at each note', true);
+	const newChapterToggle = createToggleRow(container, 'Start a new chapter at each note', modal.newChapterPerNote);
 	newChapterToggle.addEventListener('change', () => {
 		modal.newChapterPerNote = newChapterToggle.checked;
 	});

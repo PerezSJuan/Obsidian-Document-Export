@@ -130,6 +130,7 @@ function buildFormattingSection(container: HTMLDivElement, modal: ExportVaultMod
 	];
 	const pageNumToggle = createToggleRow(section, 'Page numbers', modal.pageNumbersEnabled);
 	const pageNumPosField = section.createDiv({ cls: 'export-modal__field-stack' });
+	pageNumPosField.classList.toggle('is-hidden', !modal.pageNumbersEnabled);
 	pageNumToggle.addEventListener('change', () => {
 		modal.pageNumbersEnabled = pageNumToggle.checked;
 		pageNumPosField.classList.toggle('is-hidden', !pageNumToggle.checked);

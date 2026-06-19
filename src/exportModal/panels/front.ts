@@ -58,13 +58,14 @@ function buildTableOfContentsSection(container: HTMLDivElement, modal: ExportVau
 	});
 	buildSectionHeading(section, 'Table of contents');
 
-	const tocToggle = createToggleRow(section, 'Enable TOC', true);
+	const tocToggle = createToggleRow(section, 'Enable TOC', modal.enableToc);
+	const tocFields = section.createDiv({ cls: 'export-modal__grid' });
+	tocFields.classList.toggle('is-hidden', !modal.enableToc);
 	tocToggle.addEventListener('change', () => {
 		modal.enableToc = tocToggle.checked;
 		tocFields.classList.toggle('is-hidden', !tocToggle.checked);
 	});
 
-	const tocFields = section.createDiv({ cls: 'export-modal__grid' });
 	const depthField = tocFields.createDiv();
 	buildFieldLabel(depthField, 'Depth');
 	const depthSelect = depthField.createEl('select');

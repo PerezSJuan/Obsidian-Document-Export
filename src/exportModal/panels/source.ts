@@ -51,11 +51,8 @@ function buildManifestSection(container: HTMLDivElement, modal: ExportVaultModal
 		cls: 'export-modal__sub',
 	});
 
-	const preview = container.createDiv({ cls: 'export-modal__preview-box' });
-	preview.createEl('p', {
-		text: 'No index note selected.',
-		cls: 'export-modal__empty-state',
-	});
+	container.createDiv({ cls: 'export-modal__preview-box' });
+	syncManifestPreview(container, modal);
 }
 
 function syncManifestPreview(container: HTMLDivElement, modal: ExportVaultModal) {

@@ -50,6 +50,30 @@ export class ExportVaultModal extends Modal {
 		super(app);
 	}
 
+	public applySettings(settings: ExportConfig) {
+		this.contentMode = settings.source.mode;
+		this.indexNotePath = settings.source.indexNotePath;
+		this.selectedNotes = [...settings.source.selectedNotes];
+		this.detectedMetadata = { ...settings.source.metadata };
+		this.newChapterPerNote = settings.structure.newChapterPerNote;
+		this.headingMapping = { ...settings.structure.headingMapping };
+		this.wikilinkMode = settings.structure.wikilinkMode;
+		this.tagMode = settings.structure.tagMode;
+		this.noteNameMode = settings.structure.noteNameMode;
+		this.coverImagePath = settings.frontMatter.coverImagePath;
+		this.enableCoverPage = settings.frontMatter.enableCoverPage;
+		this.useBookMetadata = settings.frontMatter.useBookMetadata;
+		this.enableToc = settings.frontMatter.toc.enabled;
+		this.tocDepth = settings.frontMatter.toc.depth;
+		this.tocTitle = settings.frontMatter.toc.title;
+		this.formats = { ...settings.output.formats };
+		this.savePath = settings.output.savePath;
+		this.font = settings.formatting.font;
+		this.baseFontSize = settings.formatting.baseFontSize;
+		this.pageNumbersEnabled = settings.formatting.pageNumbers.enabled;
+		this.pageNumberPosition = settings.formatting.pageNumbers.position;
+	}
+
 	onOpen() {
 		const { contentEl } = this;
 		contentEl.empty();

@@ -1,5 +1,4 @@
 import {
-  MarkdownView,
   Plugin,
   TFile,
   TFolder,
@@ -40,27 +39,17 @@ export default class DocumentExportPlugin extends Plugin {
       name: 'Export document',
       callback: () => {
         const modal = new ExportVaultModal(this.app);
+        modal.applySettings(this.settings);
         modal.onExport = (config) => this.runExport(config);
         modal.open();
       },
     });
 
-    this.addCommand({
-      id: 'export-document-check',
-      name: 'Export document (when in Markdown)',
-      checkCallback: (checking: boolean) => {
-        const markdownView =
-          this.app.workspace.getActiveViewOfType(MarkdownView);
-        if (markdownView) {
-          if (!checking) {
-            const modal = new ExportVaultModal(this.app);
-            modal.onExport = (config) => this.runExport(config);
-            modal.open();
-          }
-          return true;
-        }
-        return false;
-      },
+    this.addRibbonIcon('file-down', 'Export document', () => {
+      const modal = new ExportVaultModal(this.app);
+      modal.applySettings(this.settings);
+      modal.onExport = (config) => this.runExport(config);
+      modal.open();
     });
 
     this.addSettingTab(new DocumentExportSettingTab(this.app, this));
@@ -155,11 +144,56 @@ export default class DocumentExportPlugin extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign(
-      {},
-      DEFAULT_SETTINGS,
-      (await this.loadData()) as Partial<DocumentExportSettings>,
-    );
+    const stored = (await this.loadData()) as Partial<DocumentExportSettings> | null;
+    this.settings = stored ? this.mergeSettings(DEFAULT_SETTINGS, stored) : DEFAULT_SETTINGS;
+  }
+
+  private mergeSettings(
+    defaults: DocumentExportSettings,
+    stored: Partial<DocumentExportSettings>,
+  ): DocumentExportSettings {
+    const result: Record<string, unknown> = { ...defaults };
+
+    for (const key of Object.keys(stored) as Array<keyof DocumentExportSettings>) {
+      const storedValue = stored[key];
+      if (storedValue === undefined) continue;
+
+      if (
+        storedValue &&
+        typeof storedValue === 'object' &&
+        !Array.isArray(storedValue)
+      ) {
+        result[key] = this.mergeDeep(result[key] as Record<string, unknown>, storedValue as Record<string, unknown>);
+      } else {
+        result[key] = storedValue;
+      }
+    }
+
+    return result as unknown as DocumentExportSettings;
+  }
+
+  private mergeDeep(
+    target: Record<string, unknown>,
+    source: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const result = { ...target };
+    for (const key of Object.keys(source)) {
+      const sourceValue = source[key];
+      const targetValue = target[key];
+      if (
+        sourceValue &&
+        typeof sourceValue === 'object' &&
+        !Array.isArray(sourceValue) &&
+        targetValue &&
+        typeof targetValue === 'object' &&
+        !Array.isArray(targetValue)
+      ) {
+        result[key] = this.mergeDeep(targetValue as Record<string, unknown>, sourceValue as Record<string, unknown>);
+      } else {
+        result[key] = sourceValue;
+      }
+    }
+    return result;
   }
 
   async saveSettings() {
