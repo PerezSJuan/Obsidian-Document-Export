@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import JSZip from 'jszip'
 import { DocxCreator } from '../../../src/docsComposers/creators/docxCreator.js'
 import type { ExportConfig } from '../../../src/types.js'
 import type { AssetResolver } from '../../../src/docsComposers/creators/assetResolver.js'
@@ -6,6 +7,11 @@ import type { AssetResolver } from '../../../src/docsComposers/creators/assetRes
 const fakeAssets: AssetResolver = {
   resolve(src: string) { return src },
   async read(_path: string) { return new ArrayBuffer(0) },
+}
+
+async function extractDocxXml(buf: Buffer): Promise<string> {
+  const zip = await JSZip.loadAsync(buf)
+  return await zip.file('word/document.xml')!.async('string')
 }
 
 const defaultConfig: ExportConfig = {
@@ -252,6 +258,92 @@ describe('DocxCreator', () => {
       const buf = await createDocx(md)
       expect(buf.length).toBeGreaterThan(200)
       expect(buf.subarray(0, 2).toString()).toBe('PK')
+    })
+  })
+
+  describe('table of contents', () => {
+    it('includes TOC entries when TOC is enabled', async () => {
+      const md = [
+        '# Chapter 1',
+        '',
+        'Content for chapter 1.',
+        '',
+        '## Section 1.1',
+        '',
+        'Content for section.',
+        '',
+        '### Subsection 1.1.1',
+        '',
+        'Deep content.',
+      ].join('\n')
+      const buf = await createDocx(md, {
+        frontMatter: {
+          ...defaultConfig.frontMatter,
+          toc: { enabled: true, depth: 3, title: 'Contents' },
+        },
+      })
+      const xml = await extractDocxXml(buf)
+      expect(xml).toContain('Contents')
+      expect(xml).toContain('Chapter 1')
+      expect(xml).toContain('Section 1.1')
+      expect(xml).toContain('Subsection 1.1.1')
+    })
+
+    it('respects toc depth setting', async () => {
+      const md = [
+        '# Chapter 1',
+        '',
+        '## Section 1.1',
+      ].join('\n')
+      const bufDepth1 = await createDocx(md, {
+        frontMatter: {
+          ...defaultConfig.frontMatter,
+          toc: { enabled: true, depth: 1, title: 'Contents' },
+        },
+      })
+      const bufDepth3 = await createDocx(md, {
+        frontMatter: {
+          ...defaultConfig.frontMatter,
+          toc: { enabled: true, depth: 3, title: 'Contents' },
+        },
+      })
+      const xml = await extractDocxXml(bufDepth1)
+      expect(xml).toContain('Contents')
+      expect(bufDepth3.length).toBeGreaterThan(bufDepth1.length)
+    })
+
+    it('does not include TOC title when disabled', async () => {
+      const md = [
+        '# Chapter 1',
+        '',
+        'Content.',
+      ].join('\n')
+      const buf = await createDocx(md, {
+        frontMatter: {
+          ...defaultConfig.frontMatter,
+          toc: { enabled: false, depth: 0, title: '' },
+        },
+      })
+      const xml = await extractDocxXml(buf)
+      expect(xml).not.toContain('Table of Contents')
+    })
+
+    it('produces larger output with more TOC entries', async () => {
+      const shortMd = ['# A'].join('\n')
+      const longMd = ['# A', '', '## B', '', '### C', '', '#### D'].join('\n')
+      const shortBuf = await createDocx(shortMd, {
+        frontMatter: {
+          ...defaultConfig.frontMatter,
+          toc: { enabled: true, depth: 4, title: 'Contents' },
+        },
+      })
+      const longBuf = await createDocx(longMd, {
+        frontMatter: {
+          ...defaultConfig.frontMatter,
+          toc: { enabled: true, depth: 4, title: 'Contents' },
+        },
+      })
+      expect(longBuf.length).toBeGreaterThan(shortBuf.length)
     })
   })
 

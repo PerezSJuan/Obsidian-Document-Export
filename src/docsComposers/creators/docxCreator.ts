@@ -15,6 +15,8 @@ import {
   TableCell,
   PageNumber,
   ShadingType,
+  TabStopType,
+  LeaderType,
 } from 'docx'
 import type { ISectionOptions } from 'docx'
 import type { ExportConfig, FontFamily } from '../../types.js'
@@ -80,6 +82,8 @@ export class DocxCreator implements Creator {
     }
 
     if (config.frontMatter.toc.enabled) {
+      const tocDepth = config.frontMatter.toc.depth || 6
+      const tocEntries = this.buildTocFromTokens(tokens, config)
       sections.push({
         children: [
           new Paragraph({
@@ -92,7 +96,11 @@ export class DocxCreator implements Creator {
             alignment: AlignmentType.CENTER,
             spacing: { after: 200 },
           }),
-          new TableOfContents('Table of Contents', { hyperlink: true, headingStyleRange: '1-6' }),
+          new TableOfContents('Table of Contents', {
+            hyperlink: true,
+            headingStyleRange: `1-${tocDepth}`,
+            contentChildren: tocEntries,
+          }),
           new Paragraph({ children: [new TextRun({ break: 1 })] }),
         ],
       })
@@ -496,6 +504,42 @@ export class DocxCreator implements Creator {
       return ext === 'jpeg' ? 'jpg' : ext
     }
     return 'png'
+  }
+
+  private buildTocFromTokens(tokens: Token[], config: ExportConfig): Paragraph[] {
+    const tocParagraphs: Paragraph[] = []
+    const tocDepth = config.frontMatter.toc.depth || 6
+
+    for (const token of tokens) {
+      if (token.type === 'heading') {
+        const heading = token as Tokens.Heading
+        if (heading.depth <= tocDepth) {
+          const text = this.inlineToText(heading.tokens)
+          if (!text) continue
+
+          const indent = (heading.depth - 1) * 400
+
+          tocParagraphs.push(
+            new Paragraph({
+              children: [new TextRun({
+                text,
+                font: this.fontName,
+                size: this.baseFontSize,
+              })],
+              spacing: { before: 40, after: 40 },
+              indent: { left: indent },
+              tabStops: [{
+                type: TabStopType.RIGHT,
+                position: 9026,
+                leader: LeaderType.DOT,
+              }],
+            }),
+          )
+        }
+      }
+    }
+
+    return tocParagraphs
   }
 
   private resolveHeadingCommand(
