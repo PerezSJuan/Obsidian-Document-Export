@@ -70,9 +70,16 @@ describe('DocxCreator', () => {
       expect(buf.subarray(0, 2).toString()).toBe('PK')
     })
 
-    it('returns export.docx as fileName', async () => {
+    it('uses the title as fileName', async () => {
       const creator = new DocxCreator()
       const result = await creator.render('hi', defaultConfig, fakeAssets)
+      expect(result.fileName).toBe('My Book.docx')
+    })
+
+    it('falls back to export.docx when title is empty', async () => {
+      const creator = new DocxCreator()
+      const config = mergeConfig({ source: { ...defaultConfig.source, metadata: { title: '', subtitle: '', author: '' } } })
+      const result = await creator.render('hi', config, fakeAssets)
       expect(result.fileName).toBe('export.docx')
     })
   })

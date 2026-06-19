@@ -4,6 +4,7 @@ import type { Token, Tokens } from 'marked'
 import type { ExportConfig, FontFamily } from '../../types.js'
 import type { Creator, RenderResult } from './creator.js'
 import type { AssetResolver } from './assetResolver.js'
+import { sanitizeFilename } from './creator.js'
 
 interface InlinePieceText {
   type: 'text'
@@ -204,7 +205,7 @@ export class PdfCreator implements Creator {
     }
 
     const bytes = await pdfDoc.save({ useObjectStreams: false })
-    return { data: Buffer.concat([Buffer.from(bytes), Buffer.from('\n')]), fileName: 'export.pdf' }
+    return { data: Buffer.concat([Buffer.from(bytes), Buffer.from('\n')]), fileName: sanitizeFilename(config.source.metadata.title, '.pdf') }
   }
 
   private async primeFonts(pdfDoc: PDFDocument, fontFamily: FontFamily): Promise<Map<string, PDFFont>> {

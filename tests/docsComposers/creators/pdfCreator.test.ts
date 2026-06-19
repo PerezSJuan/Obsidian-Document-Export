@@ -75,9 +75,16 @@ describe('PdfCreator', () => {
       expect(buf.subarray(-6).toString()).toBe('%%EOF\n')
     })
 
-    it('returns export.pdf as fileName', async () => {
+    it('uses the title as fileName', async () => {
       const creator = new PdfCreator()
       const result = await creator.render('hi', defaultConfig, fakeAssets)
+      expect(result.fileName).toBe('My Book.pdf')
+    })
+
+    it('falls back to export.pdf when title is empty', async () => {
+      const creator = new PdfCreator()
+      const config = mergeConfig({ source: { ...defaultConfig.source, metadata: { title: '', subtitle: '', author: '' } } })
+      const result = await creator.render('hi', config, fakeAssets)
       expect(result.fileName).toBe('export.pdf')
     })
   })

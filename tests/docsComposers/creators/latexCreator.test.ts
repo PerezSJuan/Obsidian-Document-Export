@@ -404,9 +404,16 @@ describe('LatexCreator', () => {
   })
 
   describe('RenderResult', () => {
-    it('returns .tex extension', async () => {
+    it('uses the title as .tex filename', async () => {
       const creator = new LatexCreator()
       const result = await creator.render('hi', defaultConfig, fakeAssets)
+      expect(result.fileName).toBe('Mi Libro.tex')
+    })
+
+    it('falls back to export.tex when title is empty', async () => {
+      const creator = new LatexCreator()
+      const config = mergeConfig({ source: { ...defaultConfig.source, metadata: { title: '', subtitle: '', author: '' } } })
+      const result = await creator.render('hi', config, fakeAssets)
       expect(result.fileName).toBe('export.tex')
     })
 

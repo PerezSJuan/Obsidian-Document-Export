@@ -3,6 +3,7 @@ import type { Tokens } from 'marked'
 import type { Token } from 'marked'
 import type { ExportConfig, FontFamily, HeadingMapping } from '../../types.js'
 import type { Creator, RenderResult } from './creator.js'
+import { sanitizeFilename } from './creator.js'
 import type { AssetResolver } from './assetResolver.js'
 
 type LatexCommand = 'part' | 'chapter' | 'section' | 'subsection' | 'subsubsection' | 'paragraph'
@@ -65,7 +66,7 @@ export class LatexCreator implements Creator {
 
     const result: RenderResult = {
       data: preamble + body + '\n\\end{document}\n',
-      fileName: 'export.tex',
+      fileName: sanitizeFilename(config.source.metadata.title, '.tex'),
     }
     if (extraFiles.length > 0) result.extraFiles = extraFiles
     return result

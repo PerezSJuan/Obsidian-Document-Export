@@ -20,6 +20,7 @@ import type { ISectionOptions } from 'docx'
 import type { ExportConfig, FontFamily } from '../../types.js'
 import type { Creator, RenderResult } from './creator.js'
 import type { AssetResolver } from './assetResolver.js'
+import { sanitizeFilename } from './creator.js'
 
 const LVL_KEYS = ['lvl1', 'lvl2', 'lvl3', 'lvl4', 'lvl5', 'lvl6']
 
@@ -132,7 +133,7 @@ export class DocxCreator implements Creator {
     })
 
     const buffer = await Packer.toBuffer(doc)
-    return { data: Buffer.from(buffer), fileName: 'export.docx' }
+    return { data: Buffer.from(buffer), fileName: sanitizeFilename(config.source.metadata.title, '.docx') }
   }
 
   private async collectImages(tokens: Token[], assets: AssetResolver): Promise<void> {
