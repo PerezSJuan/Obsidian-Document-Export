@@ -187,7 +187,7 @@ export class PdfCreator implements Creator {
       headingSizes: this.headingSizes,
     }
 
-    if (config.frontMatter.enableCoverPage) {
+    if (config.frontMatter.enableCoverPage && (config.frontMatter.coverImagePath || config.source.metadata.title || config.source.metadata.subtitle || config.source.metadata.author)) {
       await this.renderCoverPage(ctx, config)
     }
 
@@ -255,7 +255,7 @@ export class PdfCreator implements Creator {
 
   private frontMatterPageCount(config: ExportConfig): number {
     let count = 0
-    if (config.frontMatter.enableCoverPage) count++
+    if (config.frontMatter.enableCoverPage && (config.frontMatter.coverImagePath || config.source.metadata.title || config.source.metadata.subtitle || config.source.metadata.author)) count++
     if (config.frontMatter.toc.enabled) count++
     return count
   }
@@ -280,6 +280,7 @@ export class PdfCreator implements Creator {
       } catch {
         console.warn(`Could not load cover image: ${coverPath}`)
       }
+      return
     }
 
     const fontBold = this.resolveFont(ctx, true, false, false)

@@ -174,7 +174,7 @@ export class LatexCreator implements Creator {
 
     lines.push('\\begin{document}')
 
-    if (config.frontMatter.enableCoverPage) {
+    if (config.frontMatter.enableCoverPage && (config.frontMatter.coverImagePath || meta.title || meta.subtitle || meta.author)) {
       if (config.formatting.pageNumbers.enabled) {
         lines.push('\\thispagestyle{empty}')
       }
@@ -182,9 +182,6 @@ export class LatexCreator implements Creator {
         lines.push('\\begin{titlepage}')
         lines.push('\\centering')
         lines.push(`\\includegraphics[width=\\textwidth]{${this.escapeLatex(config.frontMatter.coverImagePath)}}`)
-        if (meta.title) lines.push(`\\vfill\\Huge\\textbf{${this.escapeLatex(meta.title)}}`)
-        if (meta.subtitle) lines.push(`\\vfill\\Large${this.escapeLatex(meta.subtitle)}`)
-        if (meta.author) lines.push(`\\vfill\\large${this.escapeLatex(meta.author)}`)
         lines.push('\\end{titlepage}')
       } else {
         lines.push('\\maketitle')

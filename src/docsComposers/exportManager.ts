@@ -23,11 +23,12 @@ export class ExportManager {
   ): Promise<ExportResult[]> {
     const results: ExportResult[] = []
     const formats = config.output.formats
+    const bodyMd = bookMd.replace(/^---\n[\s\S]*?\n---\n*/, '')
 
     if (formats.latex) {
       const creator = this.creators.get('latex')
       if (creator) {
-        const result = await creator.render(bookMd, config, assets)
+        const result = await creator.render(bodyMd, config, assets)
         results.push({ format: 'latex', fileName: result.fileName, data: result.data, extraFiles: result.extraFiles })
       }
     }
@@ -35,7 +36,7 @@ export class ExportManager {
     if (formats.pdf) {
       const creator = this.creators.get('pdf')
       if (creator) {
-        const result = await creator.render(bookMd, config, assets)
+        const result = await creator.render(bodyMd, config, assets)
         results.push({ format: 'pdf', fileName: result.fileName, data: result.data, extraFiles: result.extraFiles })
       }
     }
@@ -43,7 +44,7 @@ export class ExportManager {
     if (formats.docx) {
       const creator = this.creators.get('docx')
       if (creator) {
-        const result = await creator.render(bookMd, config, assets)
+        const result = await creator.render(bodyMd, config, assets)
         results.push({ format: 'docx', fileName: result.fileName, data: result.data, extraFiles: result.extraFiles })
       }
     }

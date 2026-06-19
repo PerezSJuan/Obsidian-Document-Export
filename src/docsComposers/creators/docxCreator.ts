@@ -71,7 +71,7 @@ export class DocxCreator implements Creator {
 
     const sections: ISectionOptions[] = []
 
-    if (config.frontMatter.enableCoverPage) {
+    if (config.frontMatter.enableCoverPage && !config.frontMatter.coverImagePath && (config.source.metadata.title || config.source.metadata.subtitle || config.source.metadata.author)) {
       sections.push({
         properties: { type: 'nextPage' },
         children: this.buildCoverPage(config),
