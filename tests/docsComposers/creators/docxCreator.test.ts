@@ -347,6 +347,59 @@ describe('DocxCreator', () => {
     })
   })
 
+  describe('inline formatting', () => {
+    describe('strikethrough', () => {
+      it('renders ~~text~~ as strikethrough in DOCX', async () => {
+        const buf = await createDocx('~~tachado~~')
+        const xml = await extractDocxXml(buf)
+        expect(xml).toContain('w:strike')
+        expect(xml).toContain('tachado')
+      })
+
+      it('renders mixed strikethrough and bold', async () => {
+        const buf = await createDocx('**bold ~~tachado~~** normal')
+        const xml = await extractDocxXml(buf)
+        expect(xml).toContain('w:strike')
+        expect(xml).toContain('bold')
+        expect(xml).toContain('tachado')
+      })
+    })
+
+    describe('highlight', () => {
+      it('renders <mark> as highlighted in DOCX', async () => {
+        const buf = await createDocx('<mark>resaltado</mark>')
+        const xml = await extractDocxXml(buf)
+        expect(xml).toContain('w:highlight')
+        expect(xml).toContain('resaltado')
+      })
+    })
+
+    describe('subscript', () => {
+      it('renders <sub> as subscript in DOCX', async () => {
+        const buf = await createDocx('H<sub>2</sub>O')
+        const xml = await extractDocxXml(buf)
+        expect(xml).toContain('w:vertAlign w:val="subscript"')
+        expect(xml).toContain('H')
+        expect(xml).toContain('O')
+      })
+    })
+
+    describe('superscript', () => {
+      it('renders <sup> as superscript in DOCX', async () => {
+        const buf = await createDocx('x<sup>2</sup>')
+        const xml = await extractDocxXml(buf)
+        expect(xml).toContain('w:vertAlign w:val="superscript"')
+        expect(xml).toContain('x')
+      })
+    })
+
+    it('produces larger output with more formatting', async () => {
+      const plain = await createDocx('normal text')
+      const formatted = await createDocx('**bold** ~~strike~~ <mark>hl</mark> <sub>sub</sub> <sup>sup</sup>')
+      expect(formatted.length).toBeGreaterThan(plain.length)
+    })
+  })
+
   describe('integration end-to-end', () => {
     it('produces valid DOCX from full markdown', async () => {
       const md = [

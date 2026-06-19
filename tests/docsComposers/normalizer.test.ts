@@ -321,6 +321,50 @@ describe('callouts', () => {
   })
 })
 
+describe('subscript', () => {
+  it('converts ~text~ to <sub>', () => {
+    const result = normalizeNote('H~2~O', 'a.md')
+    expect(result.content).toContain('<sub>2</sub>')
+  })
+
+  it('handles multiple subscripts', () => {
+    const result = normalizeNote('C~6~H~12~O~6~', 'a.md')
+    expect(result.content).toBe('C<sub>6</sub>H<sub>12</sub>O<sub>6</sub>')
+  })
+
+  it('ignores ~~double tilde~~ strikethrough syntax', () => {
+    const result = normalizeNote('~~text~~', 'a.md')
+    expect(result.content).toBe('~~text~~')
+  })
+
+  it('ignores single ~ without closing', () => {
+    const result = normalizeNote('H~2O', 'a.md')
+    expect(result.content).toBe('H~2O')
+  })
+
+  it('ignores empty ~~', () => {
+    const result = normalizeNote('text ~~', 'a.md')
+    expect(result.content).toBe('text ~~')
+  })
+})
+
+describe('superscript', () => {
+  it('converts ^text^ to <sup>', () => {
+    const result = normalizeNote('x^2^ + y^2^', 'a.md')
+    expect(result.content).toContain('<sup>2</sup>')
+  })
+
+  it('handles multiple superscripts', () => {
+    const result = normalizeNote('a^b^c^d^', 'a.md')
+    expect(result.content).toBe('a<sup>b</sup>c<sup>d</sup>')
+  })
+
+  it('ignores single ^ without closing', () => {
+    const result = normalizeNote('x^2 + 1', 'a.md')
+    expect(result.content).toBe('x^2 + 1')
+  })
+})
+
 describe('transformation order', () => {
   it('removes comments before processing wikilinks inside them', () => {
     const result = normalizeNote(

@@ -19,6 +19,8 @@ export function normalizeNote(
   content = blockedContent
   content = removeObsidianComments(content)
   content = convertHighlights(content)
+  content = convertSubscript(content)
+  content = convertSuperscript(content)
   content = convertWikilinks(content, options?.wikilinkMode)
   content = convertTags(content, options?.tagMode)
   content = convertImageEmbeds(content)
@@ -139,6 +141,14 @@ function removeObsidianComments(content: string): string {
 
 function convertHighlights(content: string): string {
   return content.replace(/==([^=]+)==/g, '<mark>$1</mark>')
+}
+
+function convertSubscript(content: string): string {
+  return content.replace(/(?<![~])~([^~\n]+)~(?!~)/g, '<sub>$1</sub>')
+}
+
+function convertSuperscript(content: string): string {
+  return content.replace(/\^([^^\n]+)\^/g, '<sup>$1</sup>')
 }
 
 function convertWikilinks(content: string, mode = 'resolve'): string {

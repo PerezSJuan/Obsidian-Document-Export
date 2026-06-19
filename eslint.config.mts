@@ -15,6 +15,7 @@ export default tseslint.config(
 		'package-lock.json',
 		'tsconfig.json',
 		'deploy-plugin.mjs',
+		'tests/_e2e_toc_check.mjs',
 	]),
 	{
 		languageOptions: {

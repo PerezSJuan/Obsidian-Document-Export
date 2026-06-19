@@ -413,19 +413,22 @@ export class DocxCreator implements Creator {
         case 'text': return (t as Tokens.Text).text
         case 'strong': return this.inlineToText((t as Tokens.Strong).tokens)
         case 'em': return this.inlineToText((t as Tokens.Em).tokens)
+        case 'del': return this.inlineToText((t as Tokens.Del).tokens)
         case 'codespan': return (t as Tokens.Codespan).text
         case 'link': return (t as Tokens.Link).text ?? ''
         case 'image': return (t as Tokens.Image).text ?? ''
         case 'br': return '\n'
+        case 'html': return (t as Tokens.Tag).text.replace(/<[^>]+>/g, '')
         default: return ''
       }
     }).join('')
   }
 
-  private inlineToRuns(tokens: Token[], config: ExportConfig, bold = false, italic = false): (TextRun | ImageRun)[] {
+  private inlineToRuns(tokens: Token[], config: ExportConfig): (TextRun | ImageRun)[] {
     const runs: (TextRun | ImageRun)[] = []
+    const state = { bold: false, italic: false, strikethrough: false, highlight: false, sub: false, sup: false }
     for (const token of tokens) {
-      this.inlineTokenToRuns(token, runs, config, bold, italic)
+      this.inlineTokenToRuns(token, runs, config, state)
     }
     return runs
   }
@@ -434,29 +437,56 @@ export class DocxCreator implements Creator {
     token: Token,
     runs: (TextRun | ImageRun)[],
     _config: ExportConfig,
-    bold: boolean,
-    italic: boolean,
+    state: { bold: boolean; italic: boolean; strikethrough: boolean; highlight: boolean; sub: boolean; sup: boolean },
   ): void {
     switch (token.type) {
       case 'text':
         runs.push(new TextRun({
           text: (token as Tokens.Text).text,
-          bold,
-          italics: italic,
+          bold: state.bold,
+          italics: state.italic,
+          strike: state.strikethrough,
+          highlight: state.highlight ? 'yellow' : undefined,
+          subScript: state.sub || undefined,
+          superScript: state.sup || undefined,
           size: this.baseFontSize,
           font: this.fontName,
         }))
         break
-      case 'strong':
+      case 'strong': {
+        const childState = { ...state, bold: true }
         for (const t of (token as Tokens.Strong).tokens) {
-          this.inlineTokenToRuns(t, runs, _config, true, italic)
+          this.inlineTokenToRuns(t, runs, _config, childState)
         }
         break
-      case 'em':
+      }
+      case 'em': {
+        const childState = { ...state, italic: true }
         for (const t of (token as Tokens.Em).tokens) {
-          this.inlineTokenToRuns(t, runs, _config, bold, true)
+          this.inlineTokenToRuns(t, runs, _config, childState)
         }
         break
+      }
+      case 'del': {
+        const childState = { ...state, strikethrough: true }
+        for (const t of (token as Tokens.Del).tokens) {
+          this.inlineTokenToRuns(t, runs, _config, childState)
+        }
+        break
+      }
+      case 'html': {
+        const htmlText = (token as Tokens.Tag).text
+        if (htmlText === '<mark>') { state.highlight = true }
+        else if (htmlText === '</mark>') { state.highlight = false }
+        else if (htmlText === '<sub>') { state.sub = true }
+        else if (htmlText === '</sub>') { state.sub = false }
+        else if (htmlText === '<sup>') { state.sup = true }
+        else if (htmlText === '</sup>') { state.sup = false }
+        else {
+          runs.push(new TextRun({ text: htmlText, font: this.fontName, size: this.baseFontSize }))
+        }
+        break
+      }
       case 'codespan':
         runs.push(new TextRun({
           text: (token as Tokens.Codespan).text,
@@ -467,8 +497,8 @@ export class DocxCreator implements Creator {
       case 'link':
         runs.push(new TextRun({
           text: (token as Tokens.Link).text ?? '',
-          bold,
-          italics: italic,
+          bold: state.bold,
+          italics: state.italic,
           size: this.baseFontSize,
           font: this.fontName,
         }))
