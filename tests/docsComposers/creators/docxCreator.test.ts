@@ -97,10 +97,13 @@ describe('DocxCreator', () => {
       expect(big.length).toBeGreaterThan(small.length)
     })
 
-    it('heading produces different output than plain text', async () => {
+    it('heading produces different document.xml than plain text', async () => {
       const plain = await createDocx('text')
       const heading = await createDocx('# Heading')
-      expect(heading.length).not.toEqual(plain.length)
+      const plainXml = await extractDocxXml(plain)
+      const headingXml = await extractDocxXml(heading)
+      expect(plainXml).not.toEqual(headingXml)
+      expect(headingXml).toContain('Heading1')
     })
   })
 
@@ -192,6 +195,13 @@ describe('DocxCreator', () => {
       const buf = await createDocx('> Line 1\n> Line 2')
       expect(buf.subarray(0, 2).toString()).toBe('PK')
     })
+
+    it('blockquote has italic and left border', async () => {
+      const buf = await createDocx('> quoted text')
+      const xml = await extractDocxXml(buf)
+      expect(xml).toContain('w:i')
+      expect(xml).toContain('w:left')
+    })
   })
 
   describe('horizontal rule', () => {
@@ -226,6 +236,29 @@ describe('DocxCreator', () => {
     it('renders ordered list', async () => {
       const buf = await createDocx('1. First\n2. Second\n3. Third')
       expect(buf.subarray(0, 2).toString()).toBe('PK')
+    })
+
+    it('renders task list items', async () => {
+      const md = '- [ ] Unchecked\n- [x] Checked'
+      const buf = await createDocx(md)
+      const xml = await extractDocxXml(buf)
+      expect(xml).toContain('Unchecked')
+      expect(xml).toContain('Checked')
+    })
+
+    it('nested list has deeper indent', async () => {
+      const md = '- Top\n  - Mid\n    - Deep'
+      const buf = await createDocx(md)
+      const xml = await extractDocxXml(buf)
+      expect(xml).toContain('Mid')
+      expect(xml).toContain('Deep')
+      const firstMid = xml.indexOf('Mid')
+      const firstDeep = xml.indexOf('Deep')
+      const indentMid = xml.lastIndexOf('w:left', firstMid)
+      const indentDeep = xml.lastIndexOf('w:left', firstDeep)
+      const midVal = xml.substring(indentMid, indentMid + 50)
+      const deepVal = xml.substring(indentDeep, indentDeep + 50)
+      expect(midVal).not.toEqual(deepVal)
     })
   })
 

@@ -17,6 +17,7 @@ import {
   ShadingType,
   TabStopType,
   LeaderType,
+  BorderStyle,
 } from 'docx'
 import type { ISectionOptions } from 'docx'
 import type { ExportConfig, FontFamily } from '../../types.js'
@@ -133,11 +134,41 @@ export class DocxCreator implements Creator {
     }
     sections.push(sectionOptions)
 
+    const bs = this.baseFontSize
+
     const doc = new Document({
       title: config.source.metadata.title || undefined,
       description: config.source.metadata.subtitle || undefined,
       creator: config.source.metadata.author || undefined,
       sections,
+      styles: {
+        default: {
+          heading1: {
+            run: { size: Math.round(bs * 2.0), bold: true, font: this.fontName },
+            paragraph: { spacing: { before: 360, after: 160 } },
+          },
+          heading2: {
+            run: { size: Math.round(bs * 1.6), bold: true, font: this.fontName },
+            paragraph: { spacing: { before: 280, after: 120 } },
+          },
+          heading3: {
+            run: { size: Math.round(bs * 1.3), bold: true, font: this.fontName },
+            paragraph: { spacing: { before: 240, after: 100 } },
+          },
+          heading4: {
+            run: { size: Math.round(bs * 1.15), bold: true, font: this.fontName },
+            paragraph: { spacing: { before: 200, after: 80 } },
+          },
+          heading5: {
+            run: { size: Math.round(bs * 1.05), bold: true, font: this.fontName },
+            paragraph: { spacing: { before: 180, after: 60 } },
+          },
+          heading6: {
+            run: { size: bs, bold: true, font: this.fontName },
+            paragraph: { spacing: { before: 160, after: 60 } },
+          },
+        },
+      },
     })
 
     const buffer = await Packer.toBuffer(doc)
@@ -267,7 +298,8 @@ export class DocxCreator implements Creator {
 
   private renderHeading(heading: Tokens.Heading, config: ExportConfig): Paragraph {
     const command = this.resolveHeadingCommand(heading.depth, config)
-    const runs = this.inlineToRuns(heading.tokens, config)
+    const headingSize = Math.round(this.baseFontSize * Math.max(2.0 - (heading.depth - 1) * 0.2, 1.0))
+    const runs = this.inlineToRuns(heading.tokens, config, headingSize)
 
     if (command === 'inline' || command === 'paragraph') {
       return new Paragraph({ children: runs, spacing: { after: 120 } })
@@ -291,7 +323,6 @@ export class DocxCreator implements Creator {
     return new Paragraph({
       heading: level as typeof HeadingLevel.HEADING_1,
       children: runs,
-      spacing: { before: 240, after: 120 },
     })
   }
 
@@ -321,36 +352,46 @@ export class DocxCreator implements Creator {
     const result: Paragraph[] = []
     for (const token of blockquote.tokens) {
       const inner = token as Tokens.Paragraph
-      const runs = this.inlineToRuns(inner.tokens ?? [], config)
+      const runs = this.inlineToRuns(inner.tokens ?? [], config, undefined, true)
       result.push(new Paragraph({
         children: runs,
         indent: { left: 400 },
         spacing: { before: 60, after: 60 },
+        border: {
+          left: { style: BorderStyle.SINGLE, color: '999999', size: 6, space: 8 },
+        },
       }))
     }
     return result
   }
 
-  private renderList(list: Tokens.List, config: ExportConfig): Paragraph[] {
+  private renderList(list: Tokens.List, config: ExportConfig, depth = 0): Paragraph[] {
     const result: Paragraph[] = []
+    const indent = 400 + depth * 400
+    const bullets = ['•', '◦', '▪', '▸']
+    const bullet = bullets[depth % bullets.length]
+
     let index = list.ordered ? 1 : 0
 
     for (const item of list.items) {
-      const prefix = list.ordered ? `${index}. ` : '• '
+      const isTask = item.task
+      const prefix = isTask
+        ? (item.checked ? '☑ ' : '☐ ')
+        : (list.ordered ? `${index}. ` : `${bullet} `)
       const text = this.extractItemText(item)
       const runs: (TextRun | ImageRun)[] = [new TextRun({ text: `${prefix}${text}`, size: this.baseFontSize, font: this.fontName })]
 
       result.push(new Paragraph({
         children: runs,
-        indent: { left: 400 },
+        indent: { left: indent },
         spacing: { before: 40, after: 40 },
       }))
 
       if (item.tokens && item.tokens.length > 1) {
-        const subParagraphs = this.buildChildren(item.tokens.slice(1), config)
-        for (const sp of subParagraphs) {
-          if (sp instanceof Paragraph) {
-            result.push(sp)
+        for (const subtoken of item.tokens.slice(1)) {
+          if (subtoken.type === 'list') {
+            const subList = this.renderList(subtoken as Tokens.List, config, depth + 1)
+            result.push(...subList)
           }
         }
       }
@@ -424,9 +465,9 @@ export class DocxCreator implements Creator {
     }).join('')
   }
 
-  private inlineToRuns(tokens: Token[], config: ExportConfig): (TextRun | ImageRun)[] {
+  private inlineToRuns(tokens: Token[], config: ExportConfig, size?: number, italic?: boolean): (TextRun | ImageRun)[] {
     const runs: (TextRun | ImageRun)[] = []
-    const state = { bold: false, italic: false, strikethrough: false, highlight: false, sub: false, sup: false }
+    const state = { bold: false, italic: italic ?? false, strikethrough: false, highlight: false, sub: false, sup: false, size: size ?? this.baseFontSize }
     for (const token of tokens) {
       this.inlineTokenToRuns(token, runs, config, state)
     }
@@ -437,7 +478,7 @@ export class DocxCreator implements Creator {
     token: Token,
     runs: (TextRun | ImageRun)[],
     _config: ExportConfig,
-    state: { bold: boolean; italic: boolean; strikethrough: boolean; highlight: boolean; sub: boolean; sup: boolean },
+    state: { bold: boolean; italic: boolean; strikethrough: boolean; highlight: boolean; sub: boolean; sup: boolean; size: number },
   ): void {
     switch (token.type) {
       case 'text':
@@ -449,7 +490,7 @@ export class DocxCreator implements Creator {
           highlight: state.highlight ? 'yellow' : undefined,
           subScript: state.sub || undefined,
           superScript: state.sup || undefined,
-          size: this.baseFontSize,
+          size: state.size,
           font: this.fontName,
         }))
         break
@@ -483,7 +524,7 @@ export class DocxCreator implements Creator {
         else if (htmlText === '<sup>') { state.sup = true }
         else if (htmlText === '</sup>') { state.sup = false }
         else {
-          runs.push(new TextRun({ text: htmlText, font: this.fontName, size: this.baseFontSize }))
+          runs.push(new TextRun({ text: htmlText, font: this.fontName, size: state.size }))
         }
         break
       }
@@ -491,7 +532,7 @@ export class DocxCreator implements Creator {
         runs.push(new TextRun({
           text: (token as Tokens.Codespan).text,
           font: 'Courier New',
-          size: Math.round(this.baseFontSize * 0.8),
+          size: Math.round(state.size * 0.8),
         }))
         break
       case 'link':
@@ -499,7 +540,7 @@ export class DocxCreator implements Creator {
           text: (token as Tokens.Link).text ?? '',
           bold: state.bold,
           italics: state.italic,
-          size: this.baseFontSize,
+          size: state.size,
           font: this.fontName,
         }))
         break
