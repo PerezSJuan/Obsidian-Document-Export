@@ -40,29 +40,46 @@ const FONT_FALLBACK_WARN: Record<FontFamily, string | null> = {
 }
 
 export class LatexCreator implements Creator {
-  private imagePaths: string[] = []
+  private imagePathMap = new Map<string, string>()
 
   async render(
     markdown: string,
     config: ExportConfig,
     assets: AssetResolver,
   ): Promise<RenderResult> {
-    this.imagePaths = []
+    console.info('[Document Export] latex render begin', { bodyLength: markdown.length })
+    this.imagePathMap.clear()
+    console.info('[Document Export] latex lexer start')
     const tokens = marked.lexer(markdown)
+    console.info('[Document Export] latex lexer done', { tokenCount: tokens.length })
+
+    console.info('[Document Export] latex collect images start')
     this.collectImages(tokens)
+    console.info('[Document Export] latex collect images done', { imageCount: this.imagePathMap.size })
+
+    console.info('[Document Export] latex preamble start')
     const preamble = this.buildPreamble(config)
+    console.info('[Document Export] latex preamble done', { preambleLength: preamble.length })
+
+    console.info('[Document Export] latex body render start')
     const body = this.renderTokens(tokens, config)
+    console.info('[Document Export] latex body render done', { bodyLength: body.length })
 
     const extraFiles: { name: string; data: ArrayBuffer }[] = []
-    for (const imgPath of this.imagePaths) {
+    console.info('[Document Export] latex extra files start', { imageCount: this.imagePathMap.size })
+    for (const [origPath, safePath] of this.imagePathMap) {
       try {
-        const resolved = assets.resolve(imgPath, '')
+        console.info('[Document Export] latex extra file read start', { origPath, safePath })
+        const resolved = assets.resolve(origPath, '')
+        console.info('[Document Export] latex extra file resolved', { origPath, resolved })
         const data = await assets.read(resolved)
-        extraFiles.push({ name: imgPath, data })
+        console.info('[Document Export] latex extra file read done', { origPath, bytes: data.byteLength })
+        extraFiles.push({ name: safePath, data })
       } catch {
-        console.warn(`Could not read image: ${imgPath}`)
+        console.warn(`Could not read image: ${origPath}`)
       }
     }
+    console.info('[Document Export] latex extra files done', { extraCount: extraFiles.length })
 
     const result: RenderResult = {
       data: preamble + body + '\n\\end{document}\n',
@@ -78,7 +95,7 @@ export class LatexCreator implements Creator {
         for (const t of (token as Tokens.Paragraph).tokens) {
           if (t.type === 'image') {
             const href = (t as Tokens.Image).href
-            if (!this.imagePaths.includes(href)) this.imagePaths.push(href)
+            this.addImage(href)
           }
         }
       }
@@ -109,8 +126,19 @@ export class LatexCreator implements Creator {
     for (const t of tokens) {
       if (t.type === 'image') {
         const href = (t as Tokens.Image).href
-        if (!this.imagePaths.includes(href)) this.imagePaths.push(href)
+        this.addImage(href)
       }
+    }
+  }
+
+  private addImage(href: string): void {
+    if (!href) return
+    if (/^data:/i.test(href)) return
+    let clean = href
+    try { clean = decodeURIComponent(clean) } catch { /* empty */ }
+    const safe = clean.replace(/[\\/:*?"<>|]/g, '_')
+    if (!this.imagePathMap.has(clean)) {
+      this.imagePathMap.set(clean, safe)
     }
   }
 
@@ -133,6 +161,7 @@ export class LatexCreator implements Creator {
       '\\usepackage{fancyhdr}',
       '\\usepackage{listings}',
       '\\usepackage{xcolor}',
+      '\\usepackage[normalem]{ulem}',
       '',
       ...FONT_PACKAGES[font] ?? [],
       '',
@@ -200,7 +229,8 @@ export class LatexCreator implements Creator {
   private renderTokens(tokens: Token[], config: ExportConfig): string {
     const parts: string[] = []
     for (const token of tokens) {
-      parts.push(this.renderToken(token, config))
+      const rendered = this.renderToken(token, config)
+      if (rendered) parts.push(rendered)
     }
     return parts.join('\n\n')
   }
@@ -232,7 +262,7 @@ export class LatexCreator implements Creator {
 
   private renderHeading(heading: Tokens.Heading, config: ExportConfig): string {
     const command = this.resolveHeadingCommand(heading.depth, config)
-    if (!command) return this.renderInline(heading.tokens) + '\n\n'
+    if (!command) return this.renderInline(heading.tokens)
     const text = this.renderInline(heading.tokens)
     if (command === 'part') {
       return `\\part{${text}}`
@@ -261,8 +291,16 @@ export class LatexCreator implements Creator {
     return defaults[depth - 1] ?? null
   }
 
+  private isImageOnlyToken(tokens: Token[]): boolean {
+    return tokens.length === 1 && tokens[0]?.type === 'image'
+  }
+
   private renderParagraph(paragraph: Tokens.Paragraph, _config: ExportConfig): string {
-    return this.renderInline(paragraph.tokens)
+    const content = this.renderInline(paragraph.tokens)
+    if (this.isImageOnlyToken(paragraph.tokens)) {
+      return `\\begin{center}\n${content}\n\\end{center}`
+    }
+    return content
   }
 
   private renderInline(tokens: Token[]): string {
@@ -281,6 +319,8 @@ export class LatexCreator implements Creator {
         return `\\textbf{${this.renderInline((token as Tokens.Strong).tokens)}}`
       case 'em':
         return `\\textit{${this.renderInline((token as Tokens.Em).tokens)}}`
+      case 'del':
+        return `\\sout{${this.renderInline((token as Tokens.Del).tokens)}}`
       case 'codespan':
         return `\\texttt{${this.escapeLatex((token as Tokens.Codespan).text)}}`
       case 'link':
@@ -289,6 +329,16 @@ export class LatexCreator implements Creator {
         return this.renderImage(token as Tokens.Image)
       case 'br':
         return '\\\\\n'
+      case 'html': {
+        const html = (token as Tokens.HTML).text
+        if (html === '<mark>') return '\\colorbox{yellow}{'
+        if (html === '</mark>') return '}'
+        if (html === '<sub>') return '\\textsubscript{'
+        if (html === '</sub>') return '}'
+        if (html === '<sup>') return '\\textsuperscript{'
+        if (html === '</sup>') return '}'
+        return ''
+      }
       default:
         return ''
     }
@@ -296,16 +346,38 @@ export class LatexCreator implements Creator {
 
   private renderLink(link: Tokens.Link): string {
     const text = this.renderInline(link.tokens)
-    const href = this.escapeLatex(link.href)
+    let path = link.href
+    try { path = decodeURIComponent(path) } catch { /* empty */ }
+    const href = this.escapeLatex(path)
     return `\\href{${href}}{${text}}`
   }
 
   private renderImage(image: Tokens.Image): string {
-    const path = this.escapeLatex(image.href)
-    return `\\includegraphics[width=\\textwidth]{${path}}`
+    let rawPath = image.href
+    try { rawPath = decodeURIComponent(rawPath) } catch { /* empty */ }
+
+    if (/^data:/i.test(rawPath)) {
+      const altText = image.text ? this.escapeLatex(image.text) : '[image]'
+      return altText
+    }
+
+    const safePath = this.imagePathMap.get(rawPath) ?? rawPath
+    const escapedPath = this.escapeLatex(safePath)
+    
+    const isImage = /\.(png|jpe?g|gif|bmp|pdf|eps)$/i.test(rawPath)
+    if (!isImage) {
+      const altText = image.text ? this.escapeLatex(image.text) : escapedPath
+      return `[\\href{${escapedPath}}{${altText}}]`
+    }
+
+    return `\\includegraphics[width=\\textwidth]{${escapedPath}}`
   }
 
   private renderCode(code: Tokens.Code): string {
+    if (code.lang === 'mermaid') {
+      console.info('[Document Export] latex mermaid block', { length: code.text.length })
+      return `\\begin{center}\\fbox{\\begin{minipage}{0.9\\textwidth}\n\\textbf{Mermaid}: Diagram cannot be natively rendered in LaTeX/PDF.\n\\end{minipage}}\\end{center}`
+    }
     if (code.lang) {
       return `\\begin{lstlisting}[language=${this.escapeLatex(code.lang)}]\n${code.text}\n\\end{lstlisting}`
     }
@@ -313,15 +385,27 @@ export class LatexCreator implements Creator {
   }
 
   private renderBlockquote(blockquote: Tokens.Blockquote, config: ExportConfig): string {
-    const content = this.renderTokens(blockquote.tokens, config)
-    return `\\begin{quote}\n${content.trim()}\n\\end{quote}`
+    let content = this.renderTokens(blockquote.tokens, config).trim()
+    
+    // Check if it's a callout like [!note] Title
+    const calloutMatch = content.match(/^\[!(\w+)\](?:\\\\\n|\s)*(.*?)(?:\n|$)/)
+    if (calloutMatch) {
+      const type = calloutMatch[1]!
+      const title = calloutMatch[2]
+      content = content.substring(calloutMatch[0].length).trim()
+      const titleText = title ? `: ${title}` : ''
+      return `\\begin{center}\\fbox{\\begin{minipage}{0.9\\textwidth}\n\\textbf{${type.toUpperCase()}${titleText}}\\\\\n${content}\n\\end{minipage}}\\end{center}`
+    }
+
+    return `\\begin{quote}\n${content}\n\\end{quote}`
   }
 
   private renderList(list: Tokens.List, config: ExportConfig): string {
     const env = list.ordered ? 'enumerate' : 'itemize'
     const items = list.items.map(item => {
       const text = item.tokens ? this.renderTokens(item.tokens, config).trim() : (item.text ?? '')
-      return `  \\item ${text}`
+      const prefix = item.task ? (item.checked ? '[x] ' : '[ ] ') : ''
+      return `  \\item ${prefix}${text}`
     })
     return `\\begin{${env}}\n${items.join('\n')}\n\\end{${env}}`
   }
@@ -335,6 +419,7 @@ export class LatexCreator implements Creator {
     }).join('|')
 
     const lines: string[] = []
+    lines.push(`\\begin{center}`)
     lines.push(`\\begin{tabular}{|${alignStr}|}`)
     lines.push('\\hline')
 
@@ -349,6 +434,7 @@ export class LatexCreator implements Creator {
     }
 
     lines.push('\\end{tabular}')
+    lines.push(`\\end{center}`)
     return lines.join('\n')
   }
 

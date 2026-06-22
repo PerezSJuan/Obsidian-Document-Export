@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeNote } from '../../src/docsComposers/normalizer.js'
+import { normalizeNote, resolveEmbeds } from '../../src/docsComposers/normalizer.js'
 
 describe('normalizeNote', () => {
   it('returns title from frontmatter when present', () => {
@@ -167,7 +167,7 @@ describe('wikilinks', () => {
 
   it('handles wikilinks with spaces in the target', () => {
     const result = normalizeNote('[[mi página]]', 'a.md')
-    expect(result.content).toBe('[mi página](mi página)')
+    expect(result.content).toBe('[mi página](mi%20página)')
   })
 
   it('handles wikilinks with special characters', () => {
@@ -201,24 +201,70 @@ describe('wikilinks', () => {
 })
 
 describe('image embeds', () => {
+  const emptyMap = new Map<string, { content: string; path: string }>()
+
   it('converts ![[img.png]] to markdown image', () => {
-    const result = normalizeNote('![[photo.png]]', 'a.md')
-    expect(result.content).toContain('![photo.png](photo.png)')
+    const result = resolveEmbeds('![[photo.png]]', emptyMap, 'resolve')
+    expect(result).toContain('![photo.png](photo.png)')
   })
 
   it('converts ![[img.png|alt text]]', () => {
-    const result = normalizeNote('![[photo.png|My photo]]', 'a.md')
-    expect(result.content).toContain('![My photo](photo.png)')
+    const result = resolveEmbeds('![[photo.png|My photo]]', emptyMap, 'resolve')
+    expect(result).toContain('![My photo](photo.png)')
   })
 
   it('handles image embeds with relative path', () => {
-    const result = normalizeNote('![[assets/img/photo.png]]', 'a.md')
-    expect(result.content).toBe('![assets/img/photo.png](assets/img/photo.png)')
+    const result = resolveEmbeds('![[assets/img/photo.png]]', emptyMap, 'resolve')
+    expect(result).toBe('![assets/img/photo.png](assets/img/photo.png)')
+  })
+
+  it('resolves image embed path relative to note directory', () => {
+    const result = resolveEmbeds('![[photo.png]]', emptyMap, 'resolve', 'subfolder/note.md')
+    expect(result).toBe('![photo.png](subfolder/photo.png)')
+  })
+
+  it('resolves image embed with nested relative path', () => {
+    const result = resolveEmbeds('![[assets/photo.png]]', emptyMap, 'resolve', 'subfolder/note.md')
+    expect(result).toBe('![assets/photo.png](subfolder/assets/photo.png)')
   })
 
   it('does not confuse ![[ with plain text', () => {
-    const result = normalizeNote('Not an embed: ![[ just text', 'a.md')
-    expect(result.content).toBe('Not an embed: ![[ just text')
+    const result = resolveEmbeds('Not an embed: ![[ just text', emptyMap, 'resolve')
+    expect(result).toBe('Not an embed: ![[ just text')
+  })
+
+  it('embeds note content when target is a note', () => {
+    const noteMap = new Map([['other', { content: 'Content of other note', path: 'other.md' }]])
+    const result = resolveEmbeds('![[other]]', noteMap, 'resolve')
+    expect(result).toBe('Content of other note')
+  })
+
+  it('resolves image embeds inside transcluded note', () => {
+    const noteMap = new Map([['other', { content: '![[photo.png]]', path: 'subfolder/other.md' }]])
+    const result = resolveEmbeds('![[other]]', noteMap, 'resolve', 'parent/note.md')
+    expect(result).toBe('![photo.png](subfolder/photo.png)')
+  })
+
+  it('resolves nested embeds recursively', () => {
+    const noteMap = new Map([['a', { content: '![[b]]', path: 'a.md' }], ['b', { content: 'B content', path: 'b.md' }]])
+    const result = resolveEmbeds('![[a]]', noteMap, 'resolve')
+    expect(result).toBe('B content')
+  })
+
+  it('prevents infinite loops on circular embeds', () => {
+    const noteMap = new Map([['a', { content: '![[b]]', path: 'a.md' }], ['b', { content: '![[a]]', path: 'b.md' }]])
+    const result = resolveEmbeds('![[a]]', noteMap, 'resolve')
+    expect(result).toBe('')
+  })
+
+  it('leaves embeds as-is in raw mode', () => {
+    const result = resolveEmbeds('![[photo.png]]', emptyMap, 'raw')
+    expect(result).toBe('![[photo.png]]')
+  })
+
+  it('strips embeds in strip mode', () => {
+    const result = resolveEmbeds('![[photo.png]]', emptyMap, 'strip')
+    expect(result).toBe('')
   })
 })
 

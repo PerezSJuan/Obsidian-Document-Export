@@ -6,6 +6,66 @@ export interface NormalizeOptions {
   noteNameMode: string
 }
 
+const IMAGE_EXT_RE = /\.(png|jpe?g|gif|bmp|svg|webp)$/i
+
+export interface NoteMapEntry {
+  content: string
+  path: string
+}
+
+export function resolveEmbeds(
+  content: string,
+  noteMap: Map<string, NoteMapEntry>,
+  wikilinkMode: string,
+  notePath?: string,
+  seen?: Set<string>,
+): string {
+  if (wikilinkMode === 'raw') return content
+
+  const { protected: blocks, result: blocked } = protectCodeBlocks(content)
+
+  const NON_IMAGE_EXT_RE = /\.(mp3|mp4|webm|ogg|mov|avi|wav|flac|m4a|pdf|epub|mobi)$/i
+
+  const resolved = blocked.replace(
+    /!\[\[([^|[\]]+)(?:\|([^[\]]+))?\]\]/g,
+    (match, target: string, alt?: string) => {
+      const cleanTarget = target.trim()
+      const altText = alt ?? cleanTarget
+
+      if (wikilinkMode === 'strip') return ''
+
+      if (IMAGE_EXT_RE.test(cleanTarget)) {
+        let href = cleanTarget
+        if (notePath) {
+          const noteDir = notePath.includes('/') ? notePath.slice(0, notePath.lastIndexOf('/')) : ''
+          if (noteDir) {
+            href = resolveRelativePath(href, noteDir)
+          }
+        }
+        return `![${altText}](${href.replace(/ /g, '%20')})`
+      }
+
+      if (NON_IMAGE_EXT_RE.test(cleanTarget)) {
+        return `[${altText}](${cleanTarget.replace(/ /g, '%20')})`
+      }
+
+      const hashIdx = cleanTarget.indexOf('#')
+      const baseName = hashIdx >= 0 ? cleanTarget.slice(0, hashIdx) : cleanTarget
+      const entry = noteMap.get(baseName) ?? noteMap.get(cleanTarget)
+      if (entry) {
+        if (seen?.has(baseName)) return ''
+        const nextSeen = new Set(seen)
+        nextSeen.add(baseName)
+        return resolveEmbeds(entry.content, noteMap, wikilinkMode, entry.path, nextSeen)
+      }
+
+      return match
+    },
+  )
+
+  return restoreCodeBlocks(resolved, blocks)
+}
+
 export function normalizeNote(
   rawContent: string,
   path: string,
@@ -23,7 +83,6 @@ export function normalizeNote(
   content = convertSuperscript(content)
   content = convertWikilinks(content, options?.wikilinkMode)
   content = convertTags(content, options?.tagMode)
-  content = convertImageEmbeds(content)
   content = simplifyCallouts(content)
   content = restoreCodeBlocks(content, protectedBlocks)
 
@@ -153,17 +212,17 @@ function convertSuperscript(content: string): string {
 
 function convertWikilinks(content: string, mode = 'resolve'): string {
   if (mode === 'strip') {
-    return content.replace(/\[\[([^|[\]]+)(?:\|([^[\]]+))?\]\]/g, '')
+    return content.replace(/(?<!!)\[\[([^|[\]]+)(?:\|([^[\]]+))?\]\]/g, '')
   }
   if (mode === 'raw') {
     return content
   }
   return content.replace(
-    /\[\[([^|[\]]+)(?:\|([^[\]]+))?\]\]/g,
+    /(?<!!)\[\[([^|[\]]+)(?:\|([^[\]]+))?\]\]/g,
     (_match, link: string, display?: string) => {
       const href = link.includes('#') ? link.split('#')[0]! : link
       const text = display ?? link
-      return `[${text}](${href})`
+      return `[${text}](${href.replace(/ /g, '%20')})`
     },
   )
 }
@@ -178,19 +237,48 @@ function convertTags(content: string, mode = 'keep'): string {
   return content
 }
 
-function convertImageEmbeds(content: string): string {
+function simplifyCallouts(content: string): string {
   return content.replace(
-    /!\[\[([^|[\]]+)(?:\|([^[\]]+))?\]\]/g,
-    (_match, file: string, alt?: string) => {
-      const altText = alt ?? file
-      return `![${altText}](${file})`
+    /^>\s*\[!(\w+)\][ \t]*(.*)$/gm,
+    (_match, _type: string, rest: string) => {
+      const prefix = rest.trim() ? `**${rest.trim()}** ` : ''
+      return `> ${prefix}`
     },
   )
 }
 
-function simplifyCallouts(content: string): string {
-  return content.replace(/^>\s*\[!(\w+)\][ \t]*(.*)$/gm, (_match, _type: string, rest: string) => {
-    const prefix = rest.trim() ? `**${rest.trim()}** ` : ''
-    return `> ${prefix}`
-  })
+function resolveRelativePath(relativePath: string, noteDir: string): string {
+  let path = relativePath
+  if (path.startsWith('./')) path = path.slice(2)
+  let dir = noteDir
+  while (path.startsWith('../')) {
+    path = path.slice(3)
+    const idx = dir.lastIndexOf('/', dir.length - 2)
+    dir = idx >= 0 ? dir.slice(0, idx) : ''
+  }
+  return dir ? `${dir}/${path}` : path
 }
+
+function isAbsoluteOrUrl(url: string): boolean {
+  return /^(https?|virtual|data):/i.test(url) || url.startsWith('/')
+}
+
+export function resolveImagePaths(content: string, notePath: string): string {
+  const { protected: blocks, result: blocked } = protectCodeBlocks(content)
+
+  const noteDir = notePath.includes('/') ? notePath.slice(0, notePath.lastIndexOf('/')) : ''
+
+  const resolved = blocked.replace(
+    /!\[([^\]]*)\]\(([^)]+)\)/g,
+    (_match, alt: string, url: string) => {
+      const cleanUrl = url.split(/\s+/)[0]!
+      if (isAbsoluteOrUrl(cleanUrl)) return _match
+      const resolvedPath = resolveRelativePath(cleanUrl, noteDir)
+      return `![${alt}](${resolvedPath})`
+    },
+  )
+
+  return restoreCodeBlocks(resolved, blocks)
+}
+
+

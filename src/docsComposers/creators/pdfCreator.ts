@@ -271,11 +271,14 @@ export class PdfCreator implements Creator {
         const bytes = await this.loadAssetBytes(ctx, coverPath, '')
         const image = await this.embedImage(ctx, coverPath, bytes)
         if (image) {
+          const fit = image.scaleToFit(ctx.pageWidth, ctx.pageHeight)
+          const x = (ctx.pageWidth - fit.width) / 2
+          const y = (ctx.pageHeight - fit.height) / 2
           page.drawImage(image, {
-            x: 0,
-            y: 0,
-            width: ctx.pageWidth,
-            height: ctx.pageHeight,
+            x,
+            y,
+            width: fit.width,
+            height: fit.height,
           })
         }
       } catch {
@@ -507,6 +510,10 @@ export class PdfCreator implements Creator {
     }
   }
 
+  private isImageOnlyParagraph(tokens: Token[]): boolean {
+    return tokens.length === 1 && tokens[0]?.type === 'image'
+  }
+
   private async renderParagraph(
     paragraph: Tokens.Paragraph,
     config: ExportConfig,
@@ -525,6 +532,7 @@ export class PdfCreator implements Creator {
       {
         fontSize,
         color,
+        centerContent: this.isImageOnlyParagraph(paragraph.tokens),
       },
     )
     ctx.currentTopY += 8
@@ -559,6 +567,9 @@ export class PdfCreator implements Creator {
     ctx: RenderContext,
     indent: number,
   ): Promise<void> {
+    if (code.lang === 'mermaid') {
+      console.info('[Document Export] pdf mermaid block', { length: code.text.length })
+    }
     const lines = code.text.split('\n')
     const padding = 8
     const lineHeight = 12
@@ -863,6 +874,7 @@ export class PdfCreator implements Creator {
       allowPageBreaks?: boolean
       pageOverride?: PDFPage
       fontOverride?: PDFFont
+      centerContent?: boolean
     },
   ): Promise<number> {
     const allowPageBreaks = options.allowPageBreaks ?? true
@@ -920,8 +932,9 @@ export class PdfCreator implements Creator {
           currentTopY = ctx.margins.top
           page = this.currentPage(ctx)
         }
+        const imgX = options.centerContent ? x + (width - fit.width) / 2 : x
         page.drawImage(image, {
-          x,
+          x: imgX,
           y: this.toPdfY(ctx, currentTopY, fit.height),
           width: fit.width,
           height: fit.height,

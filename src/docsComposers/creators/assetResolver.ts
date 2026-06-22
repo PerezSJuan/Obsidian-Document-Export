@@ -1,4 +1,5 @@
 export interface AssetResolver {
   resolve(src: string, noteDir: string): string
   read(filePath: string): Promise<ArrayBuffer>
+  writeVirtual?(id: string, data: ArrayBuffer): void
 }

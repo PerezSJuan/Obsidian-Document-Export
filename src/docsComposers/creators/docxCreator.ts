@@ -18,12 +18,14 @@ import {
   TabStopType,
   LeaderType,
   BorderStyle,
+  ExternalHyperlink,
 } from 'docx'
-import type { ISectionOptions } from 'docx'
+import type { ISectionOptions, ParagraphChild } from 'docx'
 import type { ExportConfig, FontFamily } from '../../types.js'
 import type { Creator, RenderResult } from './creator.js'
 import type { AssetResolver } from './assetResolver.js'
 import { sanitizeFilename } from './creator.js'
+import { getImageDimensions, scaleToFit } from '../../utils/imageUtils.js'
 
 const LVL_KEYS = ['lvl1', 'lvl2', 'lvl3', 'lvl4', 'lvl5', 'lvl6']
 
@@ -167,6 +169,9 @@ export class DocxCreator implements Creator {
             run: { size: bs, bold: true, font: this.fontName },
             paragraph: { spacing: { before: 160, after: 60 } },
           },
+          hyperlink: {
+            run: { color: '0563C1', underline: { type: 'single', color: '0563C1' } },
+          },
         },
       },
     })
@@ -177,51 +182,66 @@ export class DocxCreator implements Creator {
 
   private async collectImages(tokens: Token[], assets: AssetResolver): Promise<void> {
     for (const token of tokens) {
-      if (token.type === 'paragraph') {
-        for (const t of (token as Tokens.Paragraph).tokens) {
-          if (t.type === 'image') {
-            await this.cacheImage(t as Tokens.Image, assets)
+      switch (token.type) {
+        case 'image':
+          await this.cacheImage(token as Tokens.Image, assets)
+          break
+        case 'paragraph':
+          await this.collectInlineImages((token as Tokens.Paragraph).tokens, assets)
+          break
+        case 'heading':
+          await this.collectInlineImages((token as Tokens.Heading).tokens, assets)
+          break
+        case 'text':
+          if ((token as Tokens.Text).tokens) {
+            await this.collectInlineImages((token as Tokens.Text).tokens!, assets)
           }
-        }
-      }
-      if (token.type === 'list') {
-        for (const item of (token as Tokens.List).items) {
-          if (item.tokens) await this.collectImages(item.tokens, assets)
-        }
-      }
-      if (token.type === 'blockquote') {
-        await this.collectImages((token as Tokens.Blockquote).tokens, assets)
-      }
-      if (token.type === 'table') {
-        const table = token as Tokens.Table
-        for (const cell of table.header) {
-          if (cell.tokens) await this.collectImagesFromInline(cell.tokens, assets)
-        }
-        for (const row of table.rows) {
-          for (const cell of row) {
-            if (cell.tokens) await this.collectImagesFromInline(cell.tokens, assets)
+          break
+        case 'list':
+          for (const item of (token as Tokens.List).items) {
+            if (item.tokens) await this.collectImages(item.tokens, assets)
           }
+          break
+        case 'blockquote':
+          await this.collectImages((token as Tokens.Blockquote).tokens, assets)
+          break
+        case 'table': {
+          const table = token as Tokens.Table
+          for (const cell of table.header) {
+            if (cell.tokens) await this.collectInlineImages(cell.tokens, assets)
+          }
+          for (const row of table.rows) {
+            for (const cell of row) {
+              if (cell.tokens) await this.collectInlineImages(cell.tokens, assets)
+            }
+          }
+          break
         }
       }
     }
   }
 
-  private async collectImagesFromInline(tokens: Token[], assets: AssetResolver): Promise<void> {
+  private async collectInlineImages(tokens: Token[], assets: AssetResolver): Promise<void> {
     for (const t of tokens) {
       if (t.type === 'image') {
         await this.cacheImage(t as Tokens.Image, assets)
+      } else if (t.type === 'strong' || t.type === 'em' || t.type === 'del' || t.type === 'link') {
+        const inner = t as Tokens.Strong | Tokens.Em | Tokens.Del | Tokens.Link
+        if (inner.tokens) await this.collectInlineImages(inner.tokens, assets)
       }
     }
   }
 
   private async cacheImage(img: Tokens.Image, assets: AssetResolver): Promise<void> {
-    if (this.imageCache.has(img.href)) return
+    let href = img.href
+    try { href = decodeURIComponent(href) } catch { /* ignore */ }
+    if (this.imageCache.has(href)) return
     try {
-      const src = assets.resolve(img.href, '')
+      const src = assets.resolve(href, '')
       const data = await assets.read(src)
-      this.imageCache.set(img.href, Buffer.from(data))
+      this.imageCache.set(href, Buffer.from(data))
     } catch {
-      console.warn(`Could not read image: ${img.href}`)
+      console.warn(`Could not read image: ${href}`)
     }
   }
 
@@ -326,9 +346,17 @@ export class DocxCreator implements Creator {
     })
   }
 
+  private isImageOnlyParagraph(tokens: Token[]): boolean {
+    return tokens.length === 1 && tokens[0]?.type === 'image'
+  }
+
   private renderParagraph(paragraph: Tokens.Paragraph, config: ExportConfig): Paragraph {
     const children = this.inlineToRuns(paragraph.tokens, config)
-    return new Paragraph({ children, spacing: { after: 120 } })
+    return new Paragraph({
+      children,
+      alignment: this.isImageOnlyParagraph(paragraph.tokens) ? AlignmentType.CENTER : undefined,
+      spacing: { after: 120 },
+    })
   }
 
   private renderTextBlock(text: Tokens.Text, config: ExportConfig): Paragraph {
@@ -337,6 +365,15 @@ export class DocxCreator implements Creator {
   }
 
   private renderCode(code: Tokens.Code): Paragraph[] {
+    if (code.lang === 'mermaid') {
+      console.info('[Document Export] docx mermaid block', { length: code.text.length })
+      return [new Paragraph({
+        children: [new TextRun({ text: 'Mermaid Diagram: Cannot be natively rendered in DOCX/PDF.', font: this.fontName, size: this.baseFontSize, bold: true })],
+        indent: { left: 400 },
+        spacing: { before: 120, after: 120 },
+        shading: { type: ShadingType.CLEAR, fill: 'f0f0f0' },
+      })]
+    }
     const lines = code.text.split('\n')
     return lines.map(line =>
       new Paragraph({
@@ -350,16 +387,48 @@ export class DocxCreator implements Creator {
 
   private renderBlockquote(blockquote: Tokens.Blockquote, config: ExportConfig): Paragraph[] {
     const result: Paragraph[] = []
+    let isCallout = false
+    let calloutType = ''
+    let calloutTitle = ''
+    
+    if (blockquote.tokens && blockquote.tokens.length > 0 && blockquote.tokens[0]!.type === 'paragraph') {
+      const firstPara = blockquote.tokens[0] as Tokens.Paragraph
+      const match = firstPara.text.match(/^\[!(\w+)\](?:\\\\\n|\s)*(.*)/)
+      if (match) {
+        isCallout = true
+        calloutType = match[1]!
+        calloutTitle = match[2] || ''
+        if (firstPara.tokens && firstPara.tokens.length > 0 && firstPara.tokens[0]!.type === 'text') {
+           const textToken = firstPara.tokens[0] as Tokens.Text
+           textToken.text = textToken.text.substring(match[0].length).trimStart()
+        }
+      }
+    }
+    
+    if (isCallout) {
+      result.push(new Paragraph({
+        children: [new TextRun({ text: `${calloutType.toUpperCase()}${calloutTitle ? ': ' + calloutTitle : ''}`, bold: true, size: this.baseFontSize, font: this.fontName })],
+        indent: { left: 400 },
+        spacing: { before: 120, after: 60 },
+        border: { left: { style: BorderStyle.SINGLE, color: '555555', size: 12, space: 8 } }
+      }))
+    }
+
     for (const token of blockquote.tokens) {
       const inner = token as Tokens.Paragraph
-      const runs = this.inlineToRuns(inner.tokens ?? [], config, undefined, true)
+      if (!inner.tokens || inner.tokens.length === 0) continue
+      const runs = this.inlineToRuns(inner.tokens, config, undefined, !isCallout)
+      
+      const pSpacing = isCallout ? { before: 60, after: 60 } : { before: 60, after: 60 }
+      const pBorder = isCallout 
+        ? { left: { style: BorderStyle.SINGLE, color: '555555', size: 12, space: 8 } }
+        : { left: { style: BorderStyle.SINGLE, color: '999999', size: 6, space: 8 } }
+        
       result.push(new Paragraph({
         children: runs,
         indent: { left: 400 },
-        spacing: { before: 60, after: 60 },
-        border: {
-          left: { style: BorderStyle.SINGLE, color: '999999', size: 6, space: 8 },
-        },
+        spacing: pSpacing,
+        border: pBorder,
       }))
     }
     return result
@@ -378,8 +447,9 @@ export class DocxCreator implements Creator {
       const prefix = isTask
         ? (item.checked ? '☑ ' : '☐ ')
         : (list.ordered ? `${index}. ` : `${bullet} `)
-      const text = this.extractItemText(item)
-      const runs: (TextRun | ImageRun)[] = [new TextRun({ text: `${prefix}${text}`, size: this.baseFontSize, font: this.fontName })]
+      const prefixRun = new TextRun({ text: prefix, size: this.baseFontSize, font: this.fontName })
+      const itemRuns = this.extractItemRuns(item, config)
+      const runs: ParagraphChild[] = [prefixRun, ...itemRuns]
 
       result.push(new Paragraph({
         children: runs,
@@ -402,13 +472,13 @@ export class DocxCreator implements Creator {
     return result
   }
 
-  private renderTable(table: Tokens.Table, _config: ExportConfig): Table {
+  private renderTable(table: Tokens.Table, config: ExportConfig): Table {
     const docxRows: TableRow[] = []
 
     const headerCells = table.header.map(cell =>
       new TableCell({
         children: [new Paragraph({
-          children: [new TextRun({ text: cell.text, bold: true, size: Math.round(this.baseFontSize * 0.9), font: this.fontName })],
+          children: this.inlineToRuns(cell.tokens, config, Math.round(this.baseFontSize * 0.9), false, true),
           alignment: AlignmentType.CENTER,
         })],
         shading: { type: ShadingType.CLEAR, fill: 'e0e0e0' },
@@ -420,14 +490,14 @@ export class DocxCreator implements Creator {
       const cells = row.map(cell =>
         new TableCell({
           children: [new Paragraph({
-            children: [new TextRun({ text: cell.text, size: Math.round(this.baseFontSize * 0.8), font: this.fontName })],
+            children: this.inlineToRuns(cell.tokens, config, Math.round(this.baseFontSize * 0.8)),
           })],
         }),
       )
       docxRows.push(new TableRow({ children: cells }))
     }
 
-    return new Table({ rows: docxRows })
+    return new Table({ rows: docxRows, alignment: AlignmentType.CENTER })
   }
 
   private renderHr(): Paragraph {
@@ -438,14 +508,14 @@ export class DocxCreator implements Creator {
     })
   }
 
-  private extractItemText(item: Tokens.ListItem): string {
-    if (!item.tokens || item.tokens.length === 0) return item.text ?? ''
+  private extractItemRuns(item: Tokens.ListItem, config: ExportConfig): ParagraphChild[] {
+    if (!item.tokens || item.tokens.length === 0) return [new TextRun({ text: item.text ?? '', size: this.baseFontSize, font: this.fontName })]
     const first = item.tokens[0]
     if (first && first.type === 'paragraph') {
       const para = first as Tokens.Paragraph
-      return this.inlineToText(para.tokens)
+      return this.inlineToRuns(para.tokens, config)
     }
-    return this.inlineToText(item.tokens)
+    return this.inlineToRuns(item.tokens, config)
   }
 
   private inlineToText(tokens: Token[]): string {
@@ -465,9 +535,9 @@ export class DocxCreator implements Creator {
     }).join('')
   }
 
-  private inlineToRuns(tokens: Token[], config: ExportConfig, size?: number, italic?: boolean): (TextRun | ImageRun)[] {
-    const runs: (TextRun | ImageRun)[] = []
-    const state = { bold: false, italic: italic ?? false, strikethrough: false, highlight: false, sub: false, sup: false, size: size ?? this.baseFontSize }
+  private inlineToRuns(tokens: Token[], config: ExportConfig, size?: number, italic?: boolean, bold?: boolean): ParagraphChild[] {
+    const runs: ParagraphChild[] = []
+    const state = { bold: bold ?? false, italic: italic ?? false, strikethrough: false, highlight: false, sub: false, sup: false, hyperlink: false, size: size ?? this.baseFontSize }
     for (const token of tokens) {
       this.inlineTokenToRuns(token, runs, config, state)
     }
@@ -476,14 +546,15 @@ export class DocxCreator implements Creator {
 
   private inlineTokenToRuns(
     token: Token,
-    runs: (TextRun | ImageRun)[],
+    runs: ParagraphChild[],
     _config: ExportConfig,
-    state: { bold: boolean; italic: boolean; strikethrough: boolean; highlight: boolean; sub: boolean; sup: boolean; size: number },
+    state: { bold: boolean; italic: boolean; strikethrough: boolean; highlight: boolean; sub: boolean; sup: boolean; hyperlink: boolean; size: number },
   ): void {
     switch (token.type) {
       case 'text':
         runs.push(new TextRun({
           text: (token as Tokens.Text).text,
+          style: state.hyperlink ? 'Hyperlink' : undefined,
           bold: state.bold,
           italics: state.italic,
           strike: state.strikethrough,
@@ -524,26 +595,41 @@ export class DocxCreator implements Creator {
         else if (htmlText === '<sup>') { state.sup = true }
         else if (htmlText === '</sup>') { state.sup = false }
         else {
-          runs.push(new TextRun({ text: htmlText, font: this.fontName, size: state.size }))
+          runs.push(new TextRun({ text: htmlText, font: this.fontName, size: state.size, style: state.hyperlink ? 'Hyperlink' : undefined }))
         }
         break
       }
       case 'codespan':
         runs.push(new TextRun({
           text: (token as Tokens.Codespan).text,
+          style: state.hyperlink ? 'Hyperlink' : undefined,
           font: 'Courier New',
           size: Math.round(state.size * 0.8),
         }))
         break
-      case 'link':
-        runs.push(new TextRun({
-          text: (token as Tokens.Link).text ?? '',
-          bold: state.bold,
-          italics: state.italic,
-          size: state.size,
-          font: this.fontName,
-        }))
+      case 'link': {
+        const linkToken = token as Tokens.Link
+        const linkChildren: ParagraphChild[] = []
+        const isValid = typeof URL.canParse === 'function' ? URL.canParse(linkToken.href) : false
+        if (isValid) {
+          const prevHyperlink = state.hyperlink
+          state.hyperlink = true
+          for (const t of linkToken.tokens) {
+            this.inlineTokenToRuns(t, linkChildren, _config, state)
+          }
+          state.hyperlink = prevHyperlink
+          runs.push(new ExternalHyperlink({
+            children: linkChildren,
+            link: linkToken.href,
+          }))
+        } else {
+          for (const t of linkToken.tokens) {
+            this.inlineTokenToRuns(t, linkChildren, _config, state)
+          }
+          runs.push(...linkChildren)
+        }
         break
+      }
       case 'image':
         this.renderImageRun(token as Tokens.Image, runs)
         break
@@ -555,14 +641,24 @@ export class DocxCreator implements Creator {
     }
   }
 
-  private renderImageRun(image: Tokens.Image, runs: (TextRun | ImageRun)[]): void {
-    const imgData = this.imageCache.get(image.href)
+  private renderImageRun(image: Tokens.Image, runs: ParagraphChild[]): void {
+    let href = image.href
+    try { href = decodeURIComponent(href) } catch { /* ignore */ }
+    const imgData = this.imageCache.get(href)
     if (imgData) {
-      const ext = this.getImageExt(image.href)
+      const ext = this.getImageExt(href)
+      const dim = getImageDimensions(imgData)
+      let width = 400
+      let height = 300
+      if (dim) {
+        const scaled = scaleToFit(dim.width, dim.height, 400, 500)
+        width = scaled.width
+        height = scaled.height
+      }
       runs.push(new ImageRun({
         type: ext as 'jpg' | 'png' | 'gif' | 'bmp',
         data: imgData,
-        transformation: { width: 400, height: 300 },
+        transformation: { width, height },
       }))
     } else {
       runs.push(new TextRun({ text: `[${image.text}]`, size: this.baseFontSize }))

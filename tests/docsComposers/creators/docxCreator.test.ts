@@ -14,6 +14,11 @@ async function extractDocxXml(buf: Buffer): Promise<string> {
   return await zip.file('word/document.xml')!.async('string')
 }
 
+async function extractRelsXml(buf: Buffer): Promise<string> {
+  const zip = await JSZip.loadAsync(buf)
+  return await zip.file('word/_rels/document.xml.rels')!.async('string')
+}
+
 const defaultConfig: ExportConfig = {
   source: {
     mode: 'manual',
@@ -259,6 +264,40 @@ describe('DocxCreator', () => {
       const midVal = xml.substring(indentMid, indentMid + 50)
       const deepVal = xml.substring(indentDeep, indentDeep + 50)
       expect(midVal).not.toEqual(deepVal)
+    })
+  })
+
+  describe('hyperlinks', () => {
+    it('renders web URL as external hyperlink', async () => {
+      const buf = await createDocx('[click here](https://example.com)')
+      const xml = await extractDocxXml(buf)
+      const rels = await extractRelsXml(buf)
+      expect(xml).toContain('w:hyperlink')
+      expect(xml).toContain('click here')
+      expect(xml).toContain('w:rStyle w:val="Hyperlink"')
+      expect(rels).toContain('example.com')
+      expect(rels).toContain('TargetMode="External"')
+    })
+
+    it('renders link inside bold text', async () => {
+      const buf = await createDocx('**[bold link](https://example.com)**')
+      const xml = await extractDocxXml(buf)
+      const rels = await extractRelsXml(buf)
+      expect(xml).toContain('w:hyperlink')
+      expect(xml).toContain('bold link')
+      expect(xml).toContain('w:b')
+      expect(xml).toContain('w:rStyle w:val="Hyperlink"')
+      expect(rels).toContain('example.com')
+    })
+
+    it('renders vault path as plain text (broken link)', async () => {
+      const buf = await createDocx('[other note](Other Note)')
+      const xml = await extractDocxXml(buf)
+      const rels = await extractRelsXml(buf)
+      expect(xml).not.toContain('w:hyperlink')
+      expect(xml).toContain('other note')
+      expect(xml).not.toContain('w:rStyle w:val="Hyperlink"')
+      expect(rels).not.toContain('Other Note')
     })
   })
 

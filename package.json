@@ -18,6 +18,7 @@
 	"dependencies": {
 		"docx": "^9.7.1",
 		"marked": "^18.0.5",
+		"mermaid": "^11.15.0",
 		"pdf-lib": "^1.17.1"
 	},
 	"devDependencies": {

@@ -11,7 +11,7 @@ import {
 } from './settings.js';
 import { ExportVaultModal } from './exportModal/index.js';
 import type { ExportConfig, NormalizedNote } from './types.js';
-import { normalizeNote } from './docsComposers/normalizer.js';
+import { normalizeNote, resolveEmbeds, resolveImagePaths } from './docsComposers/normalizer.js';
 import { assemble } from './docsComposers/assembler.js';
 import { ExportManager } from './docsComposers/exportManager.js';
 import { LatexCreator } from './docsComposers/creators/latexCreator.js';
@@ -62,6 +62,11 @@ export default class DocumentExportPlugin extends Plugin {
     const vault = this.app.vault;
     const notes: NormalizedNote[] = [];
     const saveFolder = normalizeVaultRelativePath(config.output.savePath, this.vaultBasePath);
+    console.info('[Document Export] export start', {
+      mode: config.source.mode,
+      formats: config.output.formats,
+      saveFolder,
+    });
 
     const normalizeOpts = {
       wikilinkMode: config.structure.wikilinkMode,
@@ -89,15 +94,43 @@ export default class DocumentExportPlugin extends Plugin {
       throw new Error(t('error-no-notes'));
     }
 
+    console.info('[Document Export] notes loaded', { noteCount: notes.length })
+
+    for (const note of notes) {
+      note.content = resolveImagePaths(note.content, note.path)
+    }
+
+    const noteMap = new Map<string, { content: string; path: string }>()
+    for (const note of notes) {
+      const basename = note.path.replace(/\\/g, '/').split('/').pop()?.replace(/\.md$/i, '')
+      if (basename) noteMap.set(basename, { content: note.content, path: note.path })
+      noteMap.set(note.title, { content: note.content, path: note.path })
+    }
+    for (const note of notes) {
+      note.content = resolveEmbeds(note.content, noteMap, config.structure.wikilinkMode, note.path)
+    }
+
     const bookMd = assemble(notes, config);
+    console.info('[Document Export] markdown assembled', { bodyLength: bookMd.length })
     const results = await this.exportManager.runPipeline(bookMd, config, this.assetResolver);
 
     if (results.length === 0) {
       throw new Error(t('error-no-formats'));
     }
 
+    console.info('[Document Export] pipeline returned results', {
+      resultCount: results.length,
+      fileNames: results.map(r => r.fileName),
+    })
+
     for (const result of results) {
       const savePath = joinVaultPath(saveFolder, result.fileName);
+      console.info('[Document Export] writing result', {
+        format: result.format,
+        savePath,
+        isString: typeof result.data === 'string',
+        extraFiles: result.extraFiles?.length ?? 0,
+      })
 
       const existing = vault.getAbstractFileByPath(savePath);
       if (existing && existing instanceof TFile) {
@@ -121,9 +154,12 @@ export default class DocumentExportPlugin extends Plugin {
         }
       }
 
+      console.info('[Document Export] wrote result', { format: result.format, savePath })
+
       if (result.extraFiles) {
         for (const extra of result.extraFiles) {
           const extraPath = joinVaultPath(saveFolder, extra.name);
+          console.info('[Document Export] writing extra file', { extraPath })
           const extraExisting = vault.getAbstractFileByPath(extraPath);
           if (extraExisting && extraExisting instanceof TFile) {
             await vault.modifyBinary(extraExisting, extra.data);
@@ -137,10 +173,12 @@ export default class DocumentExportPlugin extends Plugin {
             }
             await vault.createBinary(extraPath, extra.data);
           }
+          console.info('[Document Export] wrote extra file', { extraPath })
         }
       }
     }
 
+    console.info('[Document Export] export complete', { files: results.map(r => r.fileName) })
     new Notice(t('notice-export-complete') + ': ' + results.map(r => r.fileName).join(', '));
   }
 
