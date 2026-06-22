@@ -161,6 +161,24 @@ export class LatexCreator implements Creator {
       '\\usepackage{fancyhdr}',
       '\\usepackage{listings}',
       '\\usepackage{xcolor}',
+      '\\definecolor{codekw}{HTML}{1F4E79}',
+      '\\definecolor{codestr}{HTML}{2E7D32}',
+      '\\definecolor{codecmt}{HTML}{808080}',
+      '\\definecolor{codenum}{HTML}{E65100}',
+      '\\definecolor{conote}{HTML}{1F4E79}',
+      '\\definecolor{cobgnote}{HTML}{E8F0FE}',
+      '\\definecolor{cotip}{HTML}{2E7D32}',
+      '\\definecolor{cobgtip}{HTML}{E8F5E9}',
+      '\\definecolor{coquestion}{HTML}{00838F}',
+      '\\definecolor{cobgquestion}{HTML}{E0F7FA}',
+      '\\definecolor{cowarning}{HTML}{E65100}',
+      '\\definecolor{cobgwarning}{HTML}{FFF3E0}',
+      '\\definecolor{codanger}{HTML}{C62828}',
+      '\\definecolor{cobgdanger}{HTML}{FFEBEE}',
+      '\\definecolor{coabstract}{HTML}{6A1B9A}',
+      '\\definecolor{cobgabstract}{HTML}{F3E5F5}',
+      '\\definecolor{codefault}{HTML}{555555}',
+      '\\definecolor{cobgdefault}{HTML}{F5F5F5}',
       '\\usepackage[normalem]{ulem}',
       '',
       ...FONT_PACKAGES[font] ?? [],
@@ -170,6 +188,11 @@ export class LatexCreator implements Creator {
       '  breaklines=true,',
       '  frame=single,',
       '  backgroundcolor=\\color[gray]{0.95},',
+      '  keywordstyle=\\color{codekw}\\bfseries,',
+      '  stringstyle=\\color{codestr},',
+      '  commentstyle=\\color{codecmt},',
+      '  numberstyle=\\color{codenum},',
+      '  identifierstyle=\\color{black},',
       '}',
       '',
       '\\setlength{\\parindent}{0pt}',
@@ -384,17 +407,44 @@ export class LatexCreator implements Creator {
     return `\\begin{verbatim}\n${code.text}\n\\end{verbatim}`
   }
 
+  private calloutColors(type: string): { text: string; bg: string } {
+    const map: Record<string, { text: string; bg: string }> = {
+      note: { text: 'conote', bg: 'cobgnote' },
+      info: { text: 'conote', bg: 'cobgnote' },
+      todo: { text: 'conote', bg: 'cobgnote' },
+      tip: { text: 'cotip', bg: 'cobgtip' },
+      hint: { text: 'cotip', bg: 'cobgtip' },
+      important: { text: 'cotip', bg: 'cobgtip' },
+      success: { text: 'cotip', bg: 'cobgtip' },
+      check: { text: 'cotip', bg: 'cobgtip' },
+      done: { text: 'cotip', bg: 'cobgtip' },
+      question: { text: 'coquestion', bg: 'cobgquestion' },
+      help: { text: 'coquestion', bg: 'cobgquestion' },
+      faq: { text: 'coquestion', bg: 'cobgquestion' },
+      warning: { text: 'cowarning', bg: 'cobgwarning' },
+      caution: { text: 'cowarning', bg: 'cobgwarning' },
+      attention: { text: 'cowarning', bg: 'cobgwarning' },
+      danger: { text: 'codanger', bg: 'cobgdanger' },
+      error: { text: 'codanger', bg: 'cobgdanger' },
+      abstract: { text: 'coabstract', bg: 'cobgabstract' },
+      summary: { text: 'coabstract', bg: 'cobgabstract' },
+      tldr: { text: 'coabstract', bg: 'cobgabstract' },
+    }
+    return map[type.toLowerCase()] ?? { text: 'codefault', bg: 'cobgdefault' }
+  }
+
   private renderBlockquote(blockquote: Tokens.Blockquote, config: ExportConfig): string {
     let content = this.renderTokens(blockquote.tokens, config).trim()
     
-    // Check if it's a callout like [!note] Title
-    const calloutMatch = content.match(/^\[!(\w+)\](?:\\\\\n|\s)*(.*?)(?:\n|$)/)
+    const calloutMatch = content.match(/^\[!(\w+)\][ \t]*(.*?)(?:\n|$)/)
     if (calloutMatch) {
       const type = calloutMatch[1]!
       const title = calloutMatch[2]
       content = content.substring(calloutMatch[0].length).trim()
-      const titleText = title ? `: ${title}` : ''
-      return `\\begin{center}\\fbox{\\begin{minipage}{0.9\\textwidth}\n\\textbf{${type.toUpperCase()}${titleText}}\\\\\n${content}\n\\end{minipage}}\\end{center}`
+      const titleText = title || ''
+      const col = this.calloutColors(type)
+      const titlePart = titleText ? `\\textcolor{${col.text}}{\\textbf{${titleText}}}\\\\\n` : ''
+      return `\\begin{center}\\fcolorbox{${col.text}}{${col.bg}}{\\begin{minipage}{0.9\\textwidth}\n${titlePart}${content}\n\\end{minipage}}\\end{center}`
     }
 
     return `\\begin{quote}\n${content}\n\\end{quote}`

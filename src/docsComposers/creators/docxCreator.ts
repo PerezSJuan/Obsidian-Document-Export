@@ -26,6 +26,7 @@ import type { Creator, RenderResult } from './creator.js'
 import type { AssetResolver } from './assetResolver.js'
 import { sanitizeFilename } from './creator.js'
 import { getImageDimensions, scaleToFit } from '../../utils/imageUtils.js'
+import { highlightCode } from '../../utils/syntaxHighlight.js'
 
 const LVL_KEYS = ['lvl1', 'lvl2', 'lvl3', 'lvl4', 'lvl5', 'lvl6']
 
@@ -374,15 +375,69 @@ export class DocxCreator implements Creator {
         shading: { type: ShadingType.CLEAR, fill: 'f0f0f0' },
       })]
     }
-    const lines = code.text.split('\n')
-    return lines.map(line =>
-      new Paragraph({
-        children: [new TextRun({ text: line, font: 'Courier New', size: Math.round(this.baseFontSize * 0.8) })],
-        indent: { left: 400 },
-        spacing: { before: 0, after: 0 },
-        shading: { type: ShadingType.CLEAR, fill: 'f5f5f5' },
-      }),
-    )
+    const tokens = highlightCode(code.text, code.lang)
+    const runs: ParagraphChild[] = []
+    for (const token of tokens) {
+      if (token.text === '\n') {
+        runs.push(new TextRun({ break: 1 }))
+      } else {
+        const color = this.tokenColor(token.type)
+        runs.push(new TextRun({
+          text: token.text,
+          font: 'Courier New',
+          size: Math.round(this.baseFontSize * 0.8),
+          color,
+        }))
+      }
+    }
+    return [new Paragraph({
+      children: runs,
+      indent: { left: 400 },
+      spacing: { before: 120, after: 120 },
+      shading: { type: ShadingType.CLEAR, fill: 'f5f5f5' },
+      border: {
+        left: { style: BorderStyle.SINGLE, color: '999999', size: 6, space: 8 },
+      },
+    })]
+  }
+
+  private tokenColor(type: string): string | undefined {
+    switch (type) {
+      case 'keyword': return '1F4E79'
+      case 'string': return '2E7D32'
+      case 'comment': return '808080'
+      case 'number': return 'E65100'
+      case 'builtin': return '6A1B9A'
+      default: return undefined
+    }
+  }
+
+  private readonly CALLOUT_COLORS: Record<string, { border: string; bg: string; text: string }> = {
+    note: { border: '1F4E79', bg: 'E8F0FE', text: '1F4E79' },
+    info: { border: '1F4E79', bg: 'E8F0FE', text: '1F4E79' },
+    todo: { border: '1F4E79', bg: 'E8F0FE', text: '1F4E79' },
+    tip: { border: '2E7D32', bg: 'E8F5E9', text: '2E7D32' },
+    hint: { border: '2E7D32', bg: 'E8F5E9', text: '2E7D32' },
+    important: { border: '2E7D32', bg: 'E8F5E9', text: '2E7D32' },
+    success: { border: '2E7D32', bg: 'E8F5E9', text: '2E7D32' },
+    check: { border: '2E7D32', bg: 'E8F5E9', text: '2E7D32' },
+    done: { border: '2E7D32', bg: 'E8F5E9', text: '2E7D32' },
+    question: { border: '00838F', bg: 'E0F7FA', text: '00838F' },
+    help: { border: '00838F', bg: 'E0F7FA', text: '00838F' },
+    faq: { border: '00838F', bg: 'E0F7FA', text: '00838F' },
+    warning: { border: 'E65100', bg: 'FFF3E0', text: 'E65100' },
+    caution: { border: 'E65100', bg: 'FFF3E0', text: 'E65100' },
+    attention: { border: 'E65100', bg: 'FFF3E0', text: 'E65100' },
+    danger: { border: 'C62828', bg: 'FFEBEE', text: 'C62828' },
+    error: { border: 'C62828', bg: 'FFEBEE', text: 'C62828' },
+    abstract: { border: '6A1B9A', bg: 'F3E5F5', text: '6A1B9A' },
+    summary: { border: '6A1B9A', bg: 'F3E5F5', text: '6A1B9A' },
+    tldr: { border: '6A1B9A', bg: 'F3E5F5', text: '6A1B9A' },
+    default: { border: '555555', bg: 'F5F5F5', text: '555555' },
+  }
+
+  private calloutStyle(type: string): { border: string; bg: string; text: string } {
+    return this.CALLOUT_COLORS[type.toLowerCase()] ?? this.CALLOUT_COLORS.default!
   }
 
   private renderBlockquote(blockquote: Tokens.Blockquote, config: ExportConfig): Paragraph[] {
@@ -393,7 +448,7 @@ export class DocxCreator implements Creator {
     
     if (blockquote.tokens && blockquote.tokens.length > 0 && blockquote.tokens[0]!.type === 'paragraph') {
       const firstPara = blockquote.tokens[0] as Tokens.Paragraph
-      const match = firstPara.text.match(/^\[!(\w+)\](?:\\\\\n|\s)*(.*)/)
+      const match = firstPara.text.match(/^\[!(\w+)\][ \t]*(.*?)(?:\n|$)/)
       if (match) {
         isCallout = true
         calloutType = match[1]!
@@ -405,12 +460,20 @@ export class DocxCreator implements Creator {
       }
     }
     
-    if (isCallout) {
+    if (isCallout && calloutTitle) {
+      const style = this.calloutStyle(calloutType)
       result.push(new Paragraph({
-        children: [new TextRun({ text: `${calloutType.toUpperCase()}${calloutTitle ? ': ' + calloutTitle : ''}`, bold: true, size: this.baseFontSize, font: this.fontName })],
+        children: [new TextRun({
+          text: calloutTitle,
+          bold: true,
+          size: this.baseFontSize,
+          font: this.fontName,
+          color: style.text,
+        })],
         indent: { left: 400 },
         spacing: { before: 120, after: 60 },
-        border: { left: { style: BorderStyle.SINGLE, color: '555555', size: 12, space: 8 } }
+        shading: { type: ShadingType.CLEAR, fill: style.bg },
+        border: { left: { style: BorderStyle.SINGLE, color: style.border, size: 18, space: 8 } },
       }))
     }
 
@@ -419,15 +482,16 @@ export class DocxCreator implements Creator {
       if (!inner.tokens || inner.tokens.length === 0) continue
       const runs = this.inlineToRuns(inner.tokens, config, undefined, !isCallout)
       
-      const pSpacing = isCallout ? { before: 60, after: 60 } : { before: 60, after: 60 }
+      const pSpacing = isCallout ? { before: 40, after: 40 } : { before: 60, after: 60 }
       const pBorder = isCallout 
-        ? { left: { style: BorderStyle.SINGLE, color: '555555', size: 12, space: 8 } }
+        ? { left: { style: BorderStyle.SINGLE, color: this.calloutStyle(calloutType).border, size: 18, space: 8 } }
         : { left: { style: BorderStyle.SINGLE, color: '999999', size: 6, space: 8 } }
         
       result.push(new Paragraph({
         children: runs,
         indent: { left: 400 },
         spacing: pSpacing,
+        shading: isCallout ? { type: ShadingType.CLEAR, fill: this.calloutStyle(calloutType).bg } : undefined,
         border: pBorder,
       }))
     }

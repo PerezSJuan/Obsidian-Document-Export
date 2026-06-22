@@ -5,6 +5,7 @@ import type { ExportConfig, FontFamily } from '../../types.js'
 import type { Creator, RenderResult } from './creator.js'
 import type { AssetResolver } from './assetResolver.js'
 import { sanitizeFilename } from './creator.js'
+import { highlightCode } from '../../utils/syntaxHighlight.js'
 
 interface InlinePieceText {
   type: 'text'
@@ -570,11 +571,13 @@ export class PdfCreator implements Creator {
     if (code.lang === 'mermaid') {
       console.info('[Document Export] pdf mermaid block', { length: code.text.length })
     }
-    const lines = code.text.split('\n')
     const padding = 8
     const lineHeight = 12
+    const fontSize = 9
+    const tokens = highlightCode(code.text, code.lang)
+    const lineCount = tokens.filter(t => t.text === '\n').length + 1
     const blockWidth = this.contentWidth(ctx, indent)
-    const blockHeight = Math.max(lines.length * lineHeight + padding * 2, 20)
+    const blockHeight = Math.max(lineCount * lineHeight + padding * 2, 20)
     const pageBottom = ctx.pageHeight - ctx.margins.bottom
 
     if (ctx.currentTopY + blockHeight > pageBottom) {
@@ -590,24 +593,71 @@ export class PdfCreator implements Creator {
       y,
       width: blockWidth,
       height: blockHeight,
-      borderColor: CODE_BG_COLOR,
+      borderColor: rgb(0.6, 0.6, 0.6),
       color: CODE_BG_COLOR,
     })
 
     const font = this.resolveFont(ctx, false, false, true)
     let textTopY = ctx.currentTopY + padding
-    for (const line of lines) {
-      page.drawText(line, {
-        x: x + padding,
-        y: this.toPdfY(ctx, textTopY, 9),
-        size: 9,
+    let cursorX = x + padding
+
+    function tokenColor(type: string): { r: number; g: number; b: number } {
+      switch (type) {
+        case 'keyword': return { r: 0.12, g: 0.30, b: 0.47 }
+        case 'string': return { r: 0.18, g: 0.49, b: 0.20 }
+        case 'comment': return { r: 0.50, g: 0.50, b: 0.50 }
+        case 'number': return { r: 0.90, g: 0.32, b: 0.00 }
+        case 'builtin': return { r: 0.41, g: 0.11, b: 0.60 }
+        default: return { r: 0.2, g: 0.2, b: 0.2 }
+      }
+    }
+
+    for (const token of tokens) {
+      if (token.text === '\n') {
+        textTopY += lineHeight
+        cursorX = x + padding
+        continue
+      }
+      const c = tokenColor(token.type)
+      page.drawText(token.text, {
+        x: cursorX,
+        y: this.toPdfY(ctx, textTopY, fontSize),
+        size: fontSize,
         font,
-        color: rgb(0.2, 0.2, 0.2),
+        color: rgb(c.r, c.g, c.b),
       })
-      textTopY += lineHeight
+      cursorX += font.widthOfTextAtSize(token.text, fontSize)
     }
 
     ctx.currentTopY += blockHeight + 4
+  }
+
+  private readonly CALLOUT_COLORS: Record<string, { r: number; g: number; b: number; bgR: number; bgG: number; bgB: number }> = {
+    note: { r: 0.12, g: 0.30, b: 0.47, bgR: 0.91, bgG: 0.94, bgB: 1.00 },
+    info: { r: 0.12, g: 0.30, b: 0.47, bgR: 0.91, bgG: 0.94, bgB: 1.00 },
+    todo: { r: 0.12, g: 0.30, b: 0.47, bgR: 0.91, bgG: 0.94, bgB: 1.00 },
+    tip: { r: 0.18, g: 0.49, b: 0.20, bgR: 0.91, bgG: 0.96, bgB: 0.91 },
+    hint: { r: 0.18, g: 0.49, b: 0.20, bgR: 0.91, bgG: 0.96, bgB: 0.91 },
+    important: { r: 0.18, g: 0.49, b: 0.20, bgR: 0.91, bgG: 0.96, bgB: 0.91 },
+    success: { r: 0.18, g: 0.49, b: 0.20, bgR: 0.91, bgG: 0.96, bgB: 0.91 },
+    check: { r: 0.18, g: 0.49, b: 0.20, bgR: 0.91, bgG: 0.96, bgB: 0.91 },
+    done: { r: 0.18, g: 0.49, b: 0.20, bgR: 0.91, bgG: 0.96, bgB: 0.91 },
+    question: { r: 0.00, g: 0.51, b: 0.56, bgR: 0.88, bgG: 0.97, bgB: 0.98 },
+    help: { r: 0.00, g: 0.51, b: 0.56, bgR: 0.88, bgG: 0.97, bgB: 0.98 },
+    faq: { r: 0.00, g: 0.51, b: 0.56, bgR: 0.88, bgG: 0.97, bgB: 0.98 },
+    warning: { r: 0.90, g: 0.32, b: 0.00, bgR: 1.00, bgG: 0.95, bgB: 0.88 },
+    caution: { r: 0.90, g: 0.32, b: 0.00, bgR: 1.00, bgG: 0.95, bgB: 0.88 },
+    attention: { r: 0.90, g: 0.32, b: 0.00, bgR: 1.00, bgG: 0.95, bgB: 0.88 },
+    danger: { r: 0.78, g: 0.16, b: 0.16, bgR: 1.00, bgG: 0.92, bgB: 0.93 },
+    error: { r: 0.78, g: 0.16, b: 0.16, bgR: 1.00, bgG: 0.92, bgB: 0.93 },
+    abstract: { r: 0.41, g: 0.11, b: 0.60, bgR: 0.95, bgG: 0.90, bgB: 0.96 },
+    summary: { r: 0.41, g: 0.11, b: 0.60, bgR: 0.95, bgG: 0.90, bgB: 0.96 },
+    tldr: { r: 0.41, g: 0.11, b: 0.60, bgR: 0.95, bgG: 0.90, bgB: 0.96 },
+    default: { r: 0.33, g: 0.33, b: 0.33, bgR: 0.96, bgG: 0.96, bgB: 0.96 },
+  }
+
+  private calloutColor(type: string): { r: number; g: number; b: number; bgR: number; bgG: number; bgB: number } {
+    return this.CALLOUT_COLORS[type.toLowerCase()] ?? this.CALLOUT_COLORS.default!
   }
 
   private async renderBlockquote(
@@ -619,22 +669,67 @@ export class PdfCreator implements Creator {
   ): Promise<void> {
     const startPageIndex = ctx.pdfDoc.getPageCount() - 1
     const startTopY = ctx.currentTopY
-    const innerIndent = indent + 18
-    const quoteFontSize = Math.max(10, fontSize - 1)
+    const innerIndent = indent + 12
 
-    await this.renderTokens(blockquote.tokens, config, ctx, innerIndent, quoteFontSize, QUOTE_COLOR)
+    let isCallout = false
+    let calloutType = ''
+    let calloutTitle = ''
+    let col = this.calloutColor('')
+
+    if (blockquote.tokens && blockquote.tokens.length > 0 && blockquote.tokens[0]!.type === 'paragraph') {
+      const firstPara = blockquote.tokens[0] as Tokens.Paragraph
+      const match = firstPara.text.match(/^\[!(\w+)\][ \t]*(.*?)(?:\n|$)/)
+      if (match) {
+        isCallout = true
+        calloutType = match[1]!
+        calloutTitle = match[2] || ''
+        if (firstPara.tokens && firstPara.tokens.length > 0 && firstPara.tokens[0]!.type === 'text') {
+          const textToken = firstPara.tokens[0] as Tokens.Text
+          textToken.text = textToken.text.substring(match[0].length).trimStart()
+        }
+        col = this.calloutColor(calloutType)
+      }
+    }
+
+    if (isCallout && calloutTitle) {
+      const titleFont = this.resolveFont(ctx, true, false, false)
+      const titleSize = Math.max(10, fontSize + 1)
+      const page = this.currentPage(ctx)
+      page.drawRectangle({
+        x: ctx.margins.left + indent,
+        y: this.toPdfY(ctx, ctx.currentTopY, 20),
+        width: this.contentWidth(ctx, indent),
+        height: 20,
+        color: rgb(col.bgR, col.bgG, col.bgB),
+        borderColor: rgb(col.r, col.g, col.b),
+      })
+      page.drawText(calloutTitle, {
+        x: ctx.margins.left + indent + 8,
+        y: this.toPdfY(ctx, ctx.currentTopY + 4, titleSize),
+        size: titleSize,
+        font: titleFont,
+        color: rgb(col.r, col.g, col.b),
+      })
+      ctx.currentTopY += 22
+    }
+
+    const contentIndent = isCallout ? indent + 8 : indent + 18
+    const contentFontSize = isCallout ? fontSize : Math.max(10, fontSize - 1)
+    await this.renderTokens(blockquote.tokens, config, ctx, contentIndent, contentFontSize, isCallout ? rgb(0, 0, 0) : QUOTE_COLOR)
 
     const page = ctx.pdfDoc.getPages()[startPageIndex]
     if (page) {
-      const height = Math.max(20, Math.min(ctx.currentTopY - startTopY, ctx.pageHeight - ctx.margins.bottom - startTopY))
-      if (height > 0) {
+      const endY = ctx.currentTopY
+      const blockHeight = Math.max(20, Math.min(endY - startTopY, ctx.pageHeight - ctx.margins.bottom - startTopY))
+      if (blockHeight > 0) {
+        const barWidth = isCallout ? 6 : 3
         page.drawRectangle({
           x: ctx.margins.left + indent,
-          y: this.toPdfY(ctx, startTopY, height),
-          width: 3,
-          height,
-          color: TABLE_LINE_COLOR,
-          borderColor: TABLE_LINE_COLOR,
+          y: this.toPdfY(ctx, startTopY, blockHeight),
+          width: barWidth,
+          height: blockHeight,
+          color: isCallout ? rgb(col.r, col.g, col.b) : TABLE_LINE_COLOR,
+          borderColor: isCallout ? rgb(col.r, col.g, col.b) : TABLE_LINE_COLOR,
         })
       }
     }

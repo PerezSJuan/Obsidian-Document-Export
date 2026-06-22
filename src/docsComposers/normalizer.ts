@@ -83,7 +83,6 @@ export function normalizeNote(
   content = convertSuperscript(content)
   content = convertWikilinks(content, options?.wikilinkMode)
   content = convertTags(content, options?.tagMode)
-  content = simplifyCallouts(content)
   content = restoreCodeBlocks(content, protectedBlocks)
 
   return { path, title, content, frontmatter }
@@ -235,16 +234,6 @@ function convertTags(content: string, mode = 'keep'): string {
     return content.replace(/#[\w/:-]+/g, (match) => `**${match}**`)
   }
   return content
-}
-
-function simplifyCallouts(content: string): string {
-  return content.replace(
-    /^>\s*\[!(\w+)\][ \t]*(.*)$/gm,
-    (_match, _type: string, rest: string) => {
-      const prefix = rest.trim() ? `**${rest.trim()}** ` : ''
-      return `> ${prefix}`
-    },
-  )
 }
 
 function resolveRelativePath(relativePath: string, noteDir: string): string {

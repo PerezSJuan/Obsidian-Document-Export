@@ -333,31 +333,33 @@ describe('comments', () => {
 })
 
 describe('callouts', () => {
-  it('simplifies callout to a plain blockquote', () => {
+  it('preserves callout syntax for creator processing', () => {
     const result = normalizeNote('> [!info] Note\n> content', 'a.md')
-    expect(result.content).toContain('> **Note**')
+    expect(result.content).toContain('> [!info] Note')
+    expect(result.content).toContain('> content')
   })
 
   it('handles callout without title', () => {
     const result = normalizeNote('> [!warning]\n> be careful', 'a.md')
-    expect(result.content).toContain('> ')
+    expect(result.content).toContain('> [!warning]')
+    expect(result.content).toContain('> be careful')
   })
 
-  it('handles callout with multiline body', () => {
+  it('preserves callout with multiline body', () => {
     const result = normalizeNote(
       '> [!tip] Tip Title\n> line 1\n> line 2',
       'a.md',
     )
-    expect(result.content).toContain('> **Tip Title**')
+    expect(result.content).toContain('> [!tip] Tip Title')
     expect(result.content).toContain('> line 1')
     expect(result.content).toContain('> line 2')
   })
 
-  it('handles different callout types', () => {
+  it('preserves different callout types', () => {
     const types = ['note', 'warning', 'danger', 'tip', 'info', 'question']
     for (const t of types) {
       const result = normalizeNote(`> [!${t}] Title`, 'a.md')
-      expect(result.content).toContain('> **Title**')
+      expect(result.content).toContain(`> [!${t}] Title`)
     }
   })
 
