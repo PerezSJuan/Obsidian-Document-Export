@@ -1,0 +1,33 @@
+PROJECT DEPENDENCIES
+====================
+
+Runtime (production):
+  docx        ^9.7.1     .docx document generation
+  html2canvas ^1.4.1     DOM element → Canvas → PNG (for math rendering)
+  katex       ^0.17.0    LaTeX equation rendering to HTML/MathML
+  marked      ^18.0.5    Markdown parser → token AST
+  mermaid     ^11.15.0   Mermaid diagram rendering (SVG → Canvas → PNG)
+  pdf-lib     ^1.17.1    PDF document generation
+
+Dev:
+  @eslint/js             ESLint config
+  esbuild                Bundler (TypeScript → main.js)
+  eslint                 Linter
+  eslint-plugin-obsidianmd  Obsidian-specific ESLint rules
+  jiti                   TS runtime loader (esbuild config)
+  jszip                  ZIP utility (used in tests)
+  obsidian               Obsidian API types
+  typescript             TS compiler
+  typescript-eslint      ESLint + TS integration
+  vitest                 Test framework
+
+Notes:
+  - KaTeX converts $...$ and $$...$$ to rendered PNG images
+    via html2canvas for DOCX/PDF embedding.
+    In LaTeX output it's left as raw math ($...$ / $$...$$).
+  - html2canvas captures KaTeX HTML output (with embedded CSS)
+    and renders it to a Canvas → PNG → ArrayBuffer.
+  - All runtime deps work on mobile
+    (no native bindings, no Node API).
+  - Mermaid renders outside the DOM using Image/Canvas.
+  - docx and pdf-lib are pure JS, no WASM or binaries.
