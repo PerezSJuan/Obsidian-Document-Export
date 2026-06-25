@@ -28,7 +28,7 @@ const defaultConfig: ExportConfig = {
     toc: { enabled: false, depth: 0, title: 'Índice' },
   },
   output: {
-    formats: { pdf: true, docx: false, latex: false },
+    formats: { pdf: true, docx: false, latex: false, svg: false },
     savePath: '/output',
   },
   formatting: {

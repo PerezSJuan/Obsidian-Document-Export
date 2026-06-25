@@ -1016,27 +1016,54 @@ export class PdfCreator implements Creator {
       }
 
       if (piece.type === 'image') {
-        flushLine()
+        const isInlineFormula = piece.href.startsWith('virtual://formula-i-')
+        if (!isInlineFormula) {
+          flushLine()
+        }
         const image = await this.getImage(ctx, piece.href)
         if (!image) {
           continue
         }
-        const fit = image.scaleToFit(width, 220)
-        if (allowPageBreaks && currentTopY + fit.height > pageBottom) {
-          ctx.pdfDoc.addPage(PAGE_SIZE)
-          currentTopY = ctx.margins.top
-          page = this.currentPage(ctx)
+        const maxImageHeight = isInlineFormula
+          ? Math.max(options.fontSize * 0.85, 6)
+          : 220
+        const fit = image.scaleToFit(width, maxImageHeight)
+        fit.width = Math.min(fit.width, image.width)
+        fit.height = Math.min(fit.height, image.height)
+
+        if (isInlineFormula) {
+          if (allowPageBreaks && lineStartTopY + options.fontSize > pageBottom) {
+            flushLine()
+            ctx.pdfDoc.addPage(PAGE_SIZE)
+            currentTopY = ctx.margins.top
+            page = this.currentPage(ctx)
+            lineStartTopY = currentTopY
+          }
+          const imgTopY = lineStartTopY + (options.fontSize - fit.height) / 2
+          page.drawImage(image, {
+            x: cursorX,
+            y: this.toPdfY(ctx, imgTopY, fit.height),
+            width: fit.width,
+            height: fit.height,
+          })
+          cursorX += fit.width + 2
+        } else {
+          if (allowPageBreaks && currentTopY + fit.height > pageBottom) {
+            ctx.pdfDoc.addPage(PAGE_SIZE)
+            currentTopY = ctx.margins.top
+            page = this.currentPage(ctx)
+          }
+          const imgX = options.centerContent ? x + (width - fit.width) / 2 : x
+          page.drawImage(image, {
+            x: imgX,
+            y: this.toPdfY(ctx, currentTopY, fit.height),
+            width: fit.width,
+            height: fit.height,
+          })
+          currentTopY += fit.height + 6
+          lineStartTopY = currentTopY
+          cursorX = x
         }
-        const imgX = options.centerContent ? x + (width - fit.width) / 2 : x
-        page.drawImage(image, {
-          x: imgX,
-          y: this.toPdfY(ctx, currentTopY, fit.height),
-          width: fit.width,
-          height: fit.height,
-        })
-        currentTopY += fit.height + 6
-        lineStartTopY = currentTopY
-        cursorX = x
         continue
       }
 
@@ -1110,7 +1137,13 @@ export class PdfCreator implements Creator {
           lineWidth = 0
         }
         const image = this.imageCacheLookup(ctx, piece.href)
-        const fitHeight = image ? image.scaleToFit(width, 220).height : 80
+        let fitHeight = 80
+        if (image) {
+          const maxImageHeight = piece.href.startsWith('virtual://formula-i-')
+            ? Math.max(fontSize * 0.85, 6)
+            : 220
+          fitHeight = Math.min(image.scaleToFit(width, maxImageHeight).height, image.height)
+        }
         totalHeight += fitHeight + 6
         continue
       }

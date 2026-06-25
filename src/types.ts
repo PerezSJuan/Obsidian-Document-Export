@@ -74,6 +74,7 @@ export interface ExportConfig {
       pdf: boolean;
       docx: boolean;
       latex: boolean;
+      svg: boolean;
     };
     savePath: string;
   };

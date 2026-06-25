@@ -431,6 +431,7 @@ const dict: Record<string, LangDict> = {
   },
   'label-pdf': { es: 'PDF', en: 'PDF', fr: 'PDF', de: 'PDF', it: 'PDF', pt: 'PDF', nl: 'PDF', ru: 'PDF', zh: 'PDF', ja: 'PDF', ko: 'PDF', ar: 'PDF', hi: 'PDF', tr: 'PDF', pl: 'PDF', sv: 'PDF', vi: 'PDF', th: 'PDF', id: 'PDF', el: 'PDF', cs: 'PDF', ro: 'PDF', hu: 'PDF', uk: 'PDF' },
   'label-docx': { es: 'DOCX', en: 'DOCX', fr: 'DOCX', de: 'DOCX', it: 'DOCX', pt: 'DOCX', nl: 'DOCX', ru: 'DOCX', zh: 'DOCX', ja: 'DOCX', ko: 'DOCX', ar: 'DOCX', hi: 'DOCX', tr: 'DOCX', pl: 'DOCX', sv: 'DOCX', vi: 'DOCX', th: 'DOCX', id: 'DOCX', el: 'DOCX', cs: 'DOCX', ro: 'DOCX', hu: 'DOCX', uk: 'DOCX' },
+  'label-svg': { es: 'SVG', en: 'SVG', fr: 'SVG', de: 'SVG', it: 'SVG', pt: 'SVG', nl: 'SVG', ru: 'SVG', zh: 'SVG', ja: 'SVG', ko: 'SVG', ar: 'SVG', hi: 'SVG', tr: 'SVG', pl: 'SVG', sv: 'SVG', vi: 'SVG', th: 'SVG', id: 'SVG', el: 'SVG', cs: 'SVG', ro: 'SVG', hu: 'SVG', uk: 'SVG' },
   'label-latex': {
     es: 'Código LaTeX', en: 'LaTeX source', fr: 'Code LaTeX', de: 'LaTeX-Quellcode',
     it: 'Codice LaTeX', pt: 'Código LaTeX', nl: 'LaTeX-broncode', ru: 'Исходный код LaTeX',
@@ -1026,6 +1027,15 @@ const dict: Record<string, LangDict> = {
     pl: 'Eksportuj LaTeX', sv: 'Exportera LaTeX', vi: 'Xuất LaTeX',
     th: 'ส่งออก LaTeX', id: 'Ekspor LaTeX', el: 'Εξαγωγή LaTeX',
     cs: 'Exportovat LaTeX', ro: 'Exportă LaTeX', hu: 'LaTeX exportálása', uk: 'Експорт LaTeX',
+  },
+  'settings-export-svg': {
+    es: 'Exportar SVG', en: 'Export SVG', fr: 'Exporter SVG', de: 'SVG exportieren',
+    it: 'Esporta SVG', pt: 'Exportar SVG', nl: 'SVG exporteren', ru: 'Экспорт SVG',
+    zh: '导出 SVG', ja: 'SVGをエクスポート', ko: 'SVG 내보내기',
+    ar: 'تصدير SVG', hi: 'SVG निर्यात करें', tr: 'SVG dışa aktar',
+    pl: 'Eksportuj SVG', sv: 'Exportera SVG', vi: 'Xuất SVG',
+    th: 'ส่งออก SVG', id: 'Ekspor SVG', el: 'Εξαγωγή SVG',
+    cs: 'Exportovat SVG', ro: 'Exportă SVG', hu: 'SVG exportálása', uk: 'Експорт SVG',
   },
   'settings-save-path': {
     es: 'Ruta de guardado', en: 'Save path', fr: 'Chemin de sauvegarde', de: 'Speicherpfad',

@@ -31,6 +31,7 @@ function buildFormatSection(container: HTMLDivElement, modal: ExportVaultModal) 
 		{ key: 'pdf' as const, label: t('label-pdf') },
 		{ key: 'docx' as const, label: t('label-docx') },
 		{ key: 'latex' as const, label: t('label-latex') },
+		{ key: 'svg' as const, label: t('label-svg') },
 	];
 	formatDefs.forEach((f) => {
 		const row = section.createEl('label', { cls: 'export-modal__checkbox-row' });

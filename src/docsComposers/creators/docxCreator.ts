@@ -615,7 +615,7 @@ export class DocxCreator implements Creator {
     state: { bold: boolean; italic: boolean; strikethrough: boolean; highlight: boolean; sub: boolean; sup: boolean; hyperlink: boolean; size: number },
   ): void {
     switch (token.type) {
-      case 'text':
+      case 'text': {
         runs.push(new TextRun({
           text: (token as Tokens.Text).text,
           style: state.hyperlink ? 'Hyperlink' : undefined,
@@ -629,6 +629,7 @@ export class DocxCreator implements Creator {
           font: this.fontName,
         }))
         break
+      }
       case 'strong': {
         const childState = { ...state, bold: true }
         for (const t of (token as Tokens.Strong).tokens) {
@@ -715,7 +716,13 @@ export class DocxCreator implements Creator {
       let width = 400
       let height = 300
       if (dim) {
-        const scaled = scaleToFit(dim.width, dim.height, 400, 500)
+        let maxW = 400
+        let maxH = 500
+        if (href.startsWith('virtual://formula-i-')) {
+          const bodyTextPt = (this.baseFontSize * 0.8) / 2
+          maxH = Math.max(bodyTextPt * 0.85, 6)
+        }
+        const scaled = scaleToFit(dim.width, dim.height, maxW, maxH)
         width = scaled.width
         height = scaled.height
       }

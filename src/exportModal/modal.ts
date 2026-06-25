@@ -41,7 +41,7 @@ export class ExportVaultModal extends Modal {
 	public enableToc = true;
 	public tocDepth = 2;
 	public tocTitle = 'Contents';
-	public formats = { pdf: true, docx: false, latex: false };
+	public formats = { pdf: true, docx: false, latex: false, svg: false };
 	public font: FontFamily = 'times-new-roman';
 	public baseFontSize = 11;
 	public pageNumbersEnabled = true;

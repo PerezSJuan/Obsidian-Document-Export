@@ -45,6 +45,7 @@ export const DEFAULT_SETTINGS: DocumentExportSettings = {
 			pdf: true,
 			docx: false,
 			latex: false,
+			svg: false,
 		},
 		savePath: '',
 	},
@@ -353,50 +354,33 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(section)
-			.setName(t('settings-save-path'))
-			.setDesc(t('settings-save-path-desc'))
-			.addText((text) =>
-				text
-					.setPlaceholder('(Vault root)')
-					.setValue(settings.output.savePath)
-					.onChange((value) => {
-						settings.output.savePath = value;
-						void this.plugin.saveSettings();
-					}),
-			);
+			.setName(t('settings-export-svg'))
+			.addToggle((toggle) => {
+				toggle.setValue(settings.output.formats.svg);
+				toggle.onChange((value) => {
+					settings.output.formats.svg = value;
+					void this.plugin.saveSettings();
+				});
+			});
 	}
 
 	private buildFormattingSection(containerEl: HTMLElement, settings: DocumentExportSettings) {
 		const section = this.buildSection(containerEl, t('settings-formatting'));
 
+		const fontOptions: { value: FontFamily; label: string }[] = [
+			{ value: 'times-new-roman', label: 'Times New Roman' },
+			{ value: 'arial', label: 'Arial' },
+			{ value: 'calibri', label: 'Calibri' },
+			{ value: 'georgia', label: 'Georgia' },
+			{ value: 'garamond', label: 'Garamond' },
+			{ value: 'verdana', label: 'Verdana' },
+			{ value: 'courier-new', label: 'Courier New' },
+			{ value: 'consolas', label: 'Consolas' },
+		];
+
 		new Setting(section)
 			.setName(t('settings-font'))
 			.addDropdown((dropdown) => {
-				const fontOptions = [{
-					value: 'times-new-roman',
-					label: 'Times New Roman',
-				}, {
-					value: 'arial',
-					label: 'Arial',
-				}, {
-					value: 'calibri',
-					label: 'Calibri',
-				}, {
-					value: 'georgia',
-					label: 'Georgia',
-				}, {
-					value: 'garamond',
-					label: 'Garamond',
-				}, {
-					value: 'verdana',
-					label: 'Verdana',
-				}, {
-					value: 'courier-new',
-					label: 'Courier New',
-				}, {
-					value: 'consolas',
-					label: 'Consolas',
-				}];
 				for (const opt of fontOptions) {
 					dropdown.addOption(opt.value, opt.label);
 				}
@@ -433,25 +417,14 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 		new Setting(section)
 			.setName(t('settings-page-position'))
 			.addDropdown((dropdown) => {
-				const positionOptions = [{
-					value: 'bottom-center',
-					label: t('pos-bottom-center'),
-				}, {
-					value: 'bottom-left',
-					label: t('pos-bottom-left'),
-				}, {
-					value: 'bottom-right',
-					label: t('pos-bottom-right'),
-				}, {
-					value: 'top-center',
-					label: t('pos-top-center'),
-				}, {
-					value: 'top-left',
-					label: t('pos-top-left'),
-				}, {
-					value: 'top-right',
-					label: t('pos-top-right'),
-				}];
+				const positionOptions: { value: PageNumberPosition; label: string }[] = [
+					{ value: 'bottom-center', label: t('pos-bottom-center') },
+					{ value: 'bottom-left', label: t('pos-bottom-left') },
+					{ value: 'bottom-right', label: t('pos-bottom-right') },
+					{ value: 'top-center', label: t('pos-top-center') },
+					{ value: 'top-left', label: t('pos-top-left') },
+					{ value: 'top-right', label: t('pos-top-right') },
+				];
 				for (const opt of positionOptions) {
 					dropdown.addOption(opt.value, opt.label);
 				}

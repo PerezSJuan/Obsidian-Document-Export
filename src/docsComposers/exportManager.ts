@@ -2,6 +2,7 @@ import type { ExportConfig } from '../types.js'
 import type { AssetResolver } from './creators/assetResolver.js'
 import type { Creator } from './creators/creator.js'
 import { renderMermaidToPNG } from '../utils/mermaidRenderer.js'
+import { renderFormulasInMarkdown } from '../utils/formulaRenderer.js'
 
 export interface ExportResult {
   format: string
@@ -66,6 +67,10 @@ export class ExportManager {
 
     bodyMd = await this.processMermaidBlocks(bodyMd, assets)
 
+    this.log('formula render start', { bodyLength: bodyMd.length, hasDollar: /\$/.test(bodyMd) })
+    bodyMd = await renderFormulasInMarkdown(bodyMd, assets)
+    this.log('formula render done', { bodyLength: bodyMd.length })
+
     if (formats.latex) {
       const creator = this.creators.get('latex')
       if (creator) {
@@ -93,6 +98,16 @@ export class ExportManager {
         const result = await creator.render(bodyMd, config, assets)
         this.log('docx render done', { fileName: result.fileName, bytes: typeof result.data === 'string' ? result.data.length : result.data.byteLength })
         results.push({ format: 'docx', fileName: result.fileName, data: result.data, extraFiles: result.extraFiles })
+      }
+    }
+
+    if (formats.svg) {
+      const creator = this.creators.get('svg')
+      if (creator) {
+        this.log('svg render start', { bodyLength: bodyMd.length })
+        const result = await creator.render(bodyMd, config, assets)
+        this.log('svg render done', { fileName: result.fileName, bytes: typeof result.data === 'string' ? result.data.length : result.data.byteLength })
+        results.push({ format: 'svg', fileName: result.fileName, data: result.data, extraFiles: result.extraFiles })
       }
     }
 
