@@ -17,10 +17,8 @@ import { ExportManager } from './docsComposers/exportManager.js';
 import { LatexCreator } from './docsComposers/creators/latexCreator.js';
 import { PdfCreator } from './docsComposers/creators/pdfCreator.js';
 import { DocxCreator } from './docsComposers/creators/docxCreator.js';
-import { SvgCreator } from './docsComposers/creators/svgCreator.js';
 import { ObsidianAssetResolver } from './infra/obsidianAssetResolver.js';
 import { joinVaultPath, normalizeVaultRelativePath } from './utils/vaultPath.js';
-import { MathExporter } from './MathExporter.js';
 import { t } from './i18n.js';
 
 export default class DocumentExportPlugin extends Plugin {
@@ -28,7 +26,6 @@ export default class DocumentExportPlugin extends Plugin {
   private exportManager = new ExportManager();
   private assetResolver = new ObsidianAssetResolver(this.app.vault);
   private vaultBasePath = '';
-  private mathExporter = new MathExporter();
 
   async onload() {
     await this.loadSettings();
@@ -37,7 +34,6 @@ export default class DocumentExportPlugin extends Plugin {
     this.exportManager.registerCreator('latex', new LatexCreator());
     this.exportManager.registerCreator('pdf', new PdfCreator());
     this.exportManager.registerCreator('docx', new DocxCreator());
-    this.exportManager.registerCreator('svg', new SvgCreator());
 
     this.addCommand({
       id: 'export-document',
@@ -47,27 +43,6 @@ export default class DocumentExportPlugin extends Plugin {
         modal.applySettings(this.settings);
         modal.onExport = (config) => this.runExport(config);
         modal.open();
-      },
-    });
-
-    this.addCommand({
-      id: 'export-katex-svg',
-      name: 'Export KaTeX selection to SVG',
-      callback: async () => {
-        const element = document.querySelector('.katex-display') as HTMLElement | null;
-        if (!element) {
-          new Notice('KaTeX element not found in the current workspace.');
-          return;
-        }
-
-        try {
-          const result = await this.mathExporter.exportToSvg(element, 'katex-equation');
-          this.mathExporter.downloadSvg(result, 'equation.svg');
-          new Notice('KaTeX SVG exported successfully.');
-        } catch (error) {
-          new Notice('Failed to export KaTeX SVG: ' + String(error));
-          console.error(error);
-        }
       },
     });
 

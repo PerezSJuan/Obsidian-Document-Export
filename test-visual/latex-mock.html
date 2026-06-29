@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LaTeX → Image Mock Visual</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.47/dist/katex.min.css" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f5f5;
+      padding: 2rem;
+      color: #1a1a1a;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    h1 { font-size: 1.5rem; margin-bottom: 1.5rem; }
+
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.12);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .card h2 { font-size: 1.1rem; margin-bottom: 1rem; opacity: .8; }
+
+    .formula-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      margin-bottom: 1.5rem;
+    }
+    .formula-btn {
+      background: #e8e8e8;
+      border: none;
+      border-radius: 4px;
+      padding: .4rem .8rem;
+      font-size: .8rem;
+      cursor: pointer;
+      transition: background .15s;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .formula-btn:hover { background: #d0d0d0; }
+    .formula-btn.active {
+      background: #4a6cf7;
+      color: #fff;
+    }
+
+    textarea {
+      width: 100%;
+      padding: .6rem .8rem;
+      font-family: 'Courier New', monospace;
+      font-size: .95rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      resize: vertical;
+      min-height: 60px;
+      margin-bottom: 1rem;
+    }
+
+    #math-render {
+      min-height: 80px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #fafafa;
+      border: 1px dashed #ccc;
+      border-radius: 4px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      overflow-x: auto;
+    }
+
+    .controls {
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      background: #4a6cf7;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: .5rem 1.2rem;
+      font-size: .9rem;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn:hover { background: #3a5ce5; }
+    .btn:active { transform: scale(.97); }
+    .btn.secondary { background: #6c757d; }
+    .btn.secondary:hover { background: #5a6268; }
+    .btn.success { background: #28a745; }
+    .btn.success:hover { background: #218838; }
+
+    #result-image {
+      display: none;
+      max-width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-top: 1rem;
+      background: #fff;
+    }
+    #result-image.show { display: inline-block; }
+
+    .info {
+      font-size: .85rem;
+      color: #666;
+      margin-top: .5rem;
+    }
+    .info a { color: #4a6cf7; }
+
+    .dimensions {
+      font-size: .8rem;
+      color: #888;
+      margin-top: .5rem;
+      font-family: monospace;
+    }
+
+    .preset-label {
+      font-size: .85rem;
+      font-weight: 600;
+      margin-bottom: .5rem;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>🧪 LaTeX → Image Mock Visual</h1>
+
+  <div class="card">
+    <h2>Fórmulas predefinidas</h2>
+    <div class="formula-grid" id="preset-grid"></div>
+  </div>
+
+  <div class="card">
+    <h2>Editor</h2>
+    <textarea id="tex-input" rows="3">E = mc^2</textarea>
+
+    <div class="controls">
+      <button class="btn" id="render-btn">Renderizar</button>
+      <button class="btn success" id="convert-btn">Exportar a PNG</button>
+      <label style="font-size:.85rem;display:flex;align-items:center;gap:.3rem;margin-left:auto;">
+        <input type="checkbox" id="display-mode" checked /> Display mode
+      </label>
+    </div>
+
+    <div id="math-render"><span class="katex">Cargando…</span></div>
+
+    <div class="dimensions" id="dims"></div>
+  </div>
+
+  <div class="card">
+    <h2>Imagen exportada</h2>
+    <img id="result-image" alt="Formula PNG export" />
+    <div class="dimensions" id="export-dims"></div>
+    <div class="controls" style="margin-top:.5rem;">
+      <button class="btn secondary" id="download-btn" style="display:none;">Descargar PNG</button>
+    </div>
+    <p class="info">
+      Usa <code>katex.renderToString()</code> + SVG foreignObject + Canvas → PNG.
+      Abre esta página en <strong>Chrome/Edge</strong> para mejor compatibilidad.
+    </p>
+  </div>
+</div>
+
+<script type="module">
+  import katex from 'https://cdn.jsdelivr.net/npm/katex@0.16.47/dist/katex.mjs';
+
+  const input = document.getElementById('tex-input');
+  const renderArea = document.getElementById('math-render');
+  const renderBtn = document.getElementById('render-btn');
+  const convertBtn = document.getElementById('convert-btn');
+  const resultImage = document.getElementById('result-image');
+  const dims = document.getElementById('dims');
+  const exportDims = document.getElementById('export-dims');
+  const downloadBtn = document.getElementById('download-btn');
+  const displayModeCheck = document.getElementById('display-mode');
+  const presetGrid = document.getElementById('preset-grid');
+
+  const PRESETS = [
+    { label: 'E=mc²', tex: 'E = mc^2' },
+    { label: 'Fórmula cuadrática', tex: 'x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}' },
+    { label: 'Identidad de Euler', tex: 'e^{i\\pi} + 1 = 0' },
+    { label: 'Integral definida', tex: '\\int_{a}^{b} f(x) \\, dx' },
+    { label: 'Serie de Taylor', tex: 'f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!} (x-a)^n' },
+    { label: 'Tensor de Riemann', tex: 'R^{\\rho}_{\\sigma\\mu\\nu} = \\partial_\\mu \\Gamma^{\\rho}_{\\nu\\sigma} - \\partial_\\nu \\Gamma^{\\rho}_{\\mu\\sigma} + \\Gamma^{\\rho}_{\\mu\\lambda} \\Gamma^{\\lambda}_{\\nu\\sigma} - \\Gamma^{\\rho}_{\\nu\\lambda} \\Gamma^{\\lambda}_{\\mu\\sigma}' },
+    { label: 'Stokes (generalizado)', tex: '\\int_{\\partial \\Omega} \\mathbf{F} \\cdot d\\mathbf{S} = \\int_\\Omega (\\nabla \\cdot \\mathbf{F}) \\, dV' },
+    { label: 'Matriz', tex: '\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}' },
+    { label: 'Sigma', tex: '\\sum_{k=1}^{n} k = \\frac{n(n+1)}{2}' },
+    { label: 'Límite', tex: '\\lim_{x \\to \\infty} \\left(1 + \\frac{1}{x}\\right)^x = e' },
+  ];
+
+  function renderFormula() {
+    const tex = input.value.trim();
+    const displayMode = displayModeCheck.checked;
+
+    if (!tex) {
+      renderArea.innerHTML = '<span style="color:#999">Introduce una expresión LaTeX</span>';
+      return;
+    }
+
+    try {
+      katex.render(tex, renderArea, { displayMode, throwOnError: true });
+      dims.textContent = `Dimensiones: ${renderArea.offsetWidth}×${renderArea.offsetHeight} px (aprox)`;
+    } catch (err) {
+      renderArea.innerHTML = `<span style="color:red">Error: ${(err instanceof Error ? err.message : String(err)).replace(/</g, '&lt;')}</span>`;
+      dims.textContent = 'Render fallido';
+    }
+  }
+
+  function exportToImage() {
+    const displayMode = displayModeCheck.checked;
+    const htmlContent = renderArea.innerHTML;
+
+    if (!htmlContent || htmlContent.includes('Error') || htmlContent.includes('Introduce')) {
+      alert('Primero renderiza una fórmula válida.');
+      return;
+    }
+
+    const width = renderArea.offsetWidth || 400;
+    const height = renderArea.offsetHeight || 100;
+
+    const svgContent = [
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">`,
+      `<foreignObject width="100%" height="100%">`,
+      `<div xmlns="http://www.w3.org/1999/xhtml"`,
+      `  style="font-size:18px;display:flex;justify-content:center;align-items:center;background:#ffffff;height:100%;">`,
+      htmlContent,
+      `</div>`,
+      `</foreignObject>`,
+      `</svg>`,
+    ].join('');
+
+    const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+
+      const canvas = document.createElement('canvas');
+      const scale = 4;
+      canvas.width = w * scale;
+      canvas.height = h * scale;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        alert('Error: No se pudo obtener el contexto 2D del canvas.');
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      ctx.scale(scale, scale);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0);
+
+      const pngDataUrl = canvas.toDataURL('image/png');
+      resultImage.src = pngDataUrl;
+      resultImage.classList.add('show');
+      exportDims.textContent = `Exportado: ${w}×${h} → PNG ${w * scale}×${h * scale} px (scale ×${scale})`;
+      downloadBtn.style.display = 'inline-block';
+      downloadBtn.onclick = () => {
+        const a = document.createElement('a');
+        a.download = 'formula.png';
+        a.href = pngDataUrl;
+        a.click();
+      };
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => {
+      alert('Error: No se pudo cargar la imagen SVG (posiblemente foreignObject no soportado en este navegador).');
+    };
+    img.src = url;
+  }
+
+  function buildPresets() {
+    PRESETS.forEach((p) => {
+      const btn = document.createElement('button');
+      btn.className = 'formula-btn';
+      btn.textContent = p.label;
+      btn.title = p.tex;
+      btn.addEventListener('click', () => {
+        input.value = p.tex;
+        renderFormula();
+      });
+      presetGrid.appendChild(btn);
+    });
+  }
+
+  input.addEventListener('input', renderFormula);
+  renderBtn.addEventListener('click', renderFormula);
+  convertBtn.addEventListener('click', exportToImage);
+  displayModeCheck.addEventListener('change', renderFormula);
+
+  buildPresets();
+  renderFormula();
+</script>
+</body>
+</html>

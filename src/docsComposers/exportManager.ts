@@ -101,16 +101,6 @@ export class ExportManager {
       }
     }
 
-    if (formats.svg) {
-      const creator = this.creators.get('svg')
-      if (creator) {
-        this.log('svg render start', { bodyLength: bodyMd.length })
-        const result = await creator.render(bodyMd, config, assets)
-        this.log('svg render done', { fileName: result.fileName, bytes: typeof result.data === 'string' ? result.data.length : result.data.byteLength })
-        results.push({ format: 'svg', fileName: result.fileName, data: result.data, extraFiles: result.extraFiles })
-      }
-    }
-
     this.log('pipeline done', { resultCount: results.length })
     return results
   }

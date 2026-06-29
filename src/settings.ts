@@ -45,7 +45,6 @@ export const DEFAULT_SETTINGS: DocumentExportSettings = {
 			pdf: true,
 			docx: false,
 			latex: false,
-			svg: false,
 		},
 		savePath: '',
 	},
@@ -353,15 +352,6 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 				});
 			});
 
-		new Setting(section)
-			.setName(t('settings-export-svg'))
-			.addToggle((toggle) => {
-				toggle.setValue(settings.output.formats.svg);
-				toggle.onChange((value) => {
-					settings.output.formats.svg = value;
-					void this.plugin.saveSettings();
-				});
-			});
 	}
 
 	private buildFormattingSection(containerEl: HTMLElement, settings: DocumentExportSettings) {
