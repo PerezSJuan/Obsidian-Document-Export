@@ -79,8 +79,13 @@ export function normalizeNote(
   content = blockedContent
   content = removeObsidianComments(content)
   content = convertHighlights(content)
+
+  const { protected: mathBlocks, result: mathProtected } = protectMathBlocks(content)
+  content = mathProtected
   content = convertSubscript(content)
   content = convertSuperscript(content)
+  content = restoreMathBlocks(content, mathBlocks)
+
   content = convertWikilinks(content, options?.wikilinkMode)
   content = convertTags(content, options?.tagMode)
   content = restoreCodeBlocks(content, protectedBlocks)
@@ -199,6 +204,32 @@ function removeObsidianComments(content: string): string {
 
 function convertHighlights(content: string): string {
   return content.replace(/==([^=]+)==/g, '<mark>$1</mark>')
+}
+
+function protectMathBlocks(content: string): { protected: ProtectedBlock[]; result: string } {
+  const blocks: ProtectedBlock[] = []
+  let counter = 0
+  const result = content
+    .replace(/\$\$[\s\S]*?\$\$/g, (match) => {
+      const placeholder = `\x00MATHBLOCK${counter}\x00`
+      blocks.push({ placeholder, original: match })
+      counter++
+      return placeholder
+    })
+    .replace(/(?<!\$)\$(?!\$)[^\n]*?\$(?!\$)/g, (match) => {
+      const placeholder = `\x00MATHBLOCK${counter}\x00`
+      blocks.push({ placeholder, original: match })
+      counter++
+      return placeholder
+    })
+  return { protected: blocks, result }
+}
+
+function restoreMathBlocks(content: string, blocks: ProtectedBlock[]): string {
+  return blocks.reduce(
+    (acc, { placeholder, original }) => acc.replace(placeholder, original),
+    content,
+  )
 }
 
 function convertSubscript(content: string): string {

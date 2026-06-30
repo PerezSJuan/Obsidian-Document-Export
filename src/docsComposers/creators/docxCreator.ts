@@ -718,9 +718,12 @@ export class DocxCreator implements Creator {
       if (dim) {
         let maxW = 400
         let maxH = 500
-        if (href.startsWith('virtual://formula-i-')) {
-          const bodyTextPt = (this.baseFontSize * 0.8) / 2
-          maxH = Math.max(bodyTextPt * 0.85, 6)
+        if (href.startsWith('virtual:formula-i-')) {
+          const actualFontPt = this.baseFontSize / 2
+          maxH = Math.max(actualFontPt * 1.2, 8)
+        } else if (href.startsWith('virtual:formula-d-')) {
+          maxW = 10000
+          maxH = Math.round(38 * 96 / 72)
         }
         const scaled = scaleToFit(dim.width, dim.height, maxW, maxH)
         width = scaled.width

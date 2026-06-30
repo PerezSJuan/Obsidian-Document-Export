@@ -1,13 +1,14 @@
 /**
  * @vitest-environment jsdom
  *
- * NOTA: html-to-image no funciona en jsdom (falta motor de renderizado).
- * El test mockea toPng y verifica el pipeline de forma aislada.
+ * NOTA: renderNodeToPng usa APIs del navegador (Image, Canvas, XMLSerializer)
+ * que no están disponibles en jsdom. El test mockea renderNodeToPng y verifica
+ * el pipeline de forma aislada.
  */
 import { describe, it, expect, vi } from 'vitest'
 
-vi.mock('html-to-image', () => ({
-  toPng: vi.fn(() => Promise.resolve('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==')),
+vi.mock('../../src/utils/renderNodeToPng.js', () => ({
+  renderNodeToPng: vi.fn(() => Promise.resolve('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==')),
 }))
 
 import { latexToImage } from '../../src/utils/latexToImage.js'

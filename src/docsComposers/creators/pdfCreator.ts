@@ -1016,7 +1016,8 @@ export class PdfCreator implements Creator {
       }
 
       if (piece.type === 'image') {
-        const isInlineFormula = piece.href.startsWith('virtual://formula-i-')
+        const isInlineFormula = piece.href.startsWith('virtual:formula-i-')
+        const isDisplayFormula = piece.href.startsWith('virtual:formula-d-')
         if (!isInlineFormula) {
           flushLine()
         }
@@ -1025,8 +1026,10 @@ export class PdfCreator implements Creator {
           continue
         }
         const maxImageHeight = isInlineFormula
-          ? Math.max(options.fontSize * 0.85, 6)
-          : 220
+          ? Math.max(options.fontSize * 1.2, 8)
+          : isDisplayFormula
+            ? 38
+            : 220
         const fit = image.scaleToFit(width, maxImageHeight)
         fit.width = Math.min(fit.width, image.width)
         fit.height = Math.min(fit.height, image.height)
@@ -1039,7 +1042,8 @@ export class PdfCreator implements Creator {
             page = this.currentPage(ctx)
             lineStartTopY = currentTopY
           }
-          const imgTopY = lineStartTopY + (options.fontSize - fit.height) / 2
+          // Ligeramente por debajo de la línea (como LaTeX / Obsidian)
+          const imgTopY = lineStartTopY + (options.fontSize - fit.height) / 2 + options.fontSize * 0.2
           page.drawImage(image, {
             x: cursorX,
             y: this.toPdfY(ctx, imgTopY, fit.height),
@@ -1139,9 +1143,11 @@ export class PdfCreator implements Creator {
         const image = this.imageCacheLookup(ctx, piece.href)
         let fitHeight = 80
         if (image) {
-          const maxImageHeight = piece.href.startsWith('virtual://formula-i-')
-            ? Math.max(fontSize * 0.85, 6)
-            : 220
+          const maxImageHeight = piece.href.startsWith('virtual:formula-i-')
+            ? Math.max(fontSize * 1.2, 8)
+            : piece.href.startsWith('virtual:formula-d-')
+              ? 38
+              : 220
           fitHeight = Math.min(image.scaleToFit(width, maxImageHeight).height, image.height)
         }
         totalHeight += fitHeight + 6

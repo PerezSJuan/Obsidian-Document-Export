@@ -64,7 +64,7 @@ export async function renderFormulasInMarkdown(
           const pngBuffer = await renderSingleFormula(trimmed, true, id)
           if (pngBuffer) {
             displayRendered++
-            const virtualPath = `virtual://formula-d-${id}.png`
+            const virtualPath = `virtual:formula-d-${id}.png`
             assets.writeVirtual?.(virtualPath, pngBuffer)
             result += `\n![formula](${virtualPath})\n`
             log('display math rendered to PNG', { id, virtualPath })
@@ -97,7 +97,7 @@ export async function renderFormulasInMarkdown(
           const pngBuffer = await renderSingleFormula(trimmed, false, id)
           if (pngBuffer) {
             inlineRendered++
-            const virtualPath = `virtual://formula-i-${id}.png`
+            const virtualPath = `virtual:formula-i-${id}.png`
             assets.writeVirtual?.(virtualPath, pngBuffer)
             result += `![formula](${virtualPath})`
             log('inline math rendered to PNG', { id, virtualPath })

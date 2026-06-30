@@ -9,18 +9,18 @@ vi.mock('katex', () => ({
   },
 }))
 
-vi.mock('html-to-image', () => ({
-  toPng: vi.fn(),
+vi.mock('../../src/utils/renderNodeToPng.js', () => ({
+  renderNodeToPng: vi.fn(),
 }))
 
 import katex from 'katex'
-import { toPng } from 'html-to-image'
+import { renderNodeToPng } from '../../src/utils/renderNodeToPng.js'
 
 const MOCK_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(toPng).mockResolvedValue(MOCK_DATA_URL)
+  vi.mocked(renderNodeToPng).mockResolvedValue(MOCK_DATA_URL)
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('fetch mock')))
 })
 
@@ -52,7 +52,7 @@ describe('latexToImage', () => {
     ).rejects.toThrow('Invalid KaTeX syntax')
   })
 
-  it('passes displayMode option to katex', async () => {
+  it('passes displayMode:true to katex regardless of option', async () => {
     vi.mocked(katex.renderToString).mockReturnValue('<span class="katex">x</span>')
 
     const { latexToImage } = await import('../../src/utils/latexToImage.js')
@@ -60,29 +60,30 @@ describe('latexToImage', () => {
 
     expect(katex.renderToString).toHaveBeenCalledWith(
       'x',
-      expect.objectContaining({ displayMode: false }),
+      expect.objectContaining({ displayMode: true }),
     )
   })
 
-  it('calls toPng with container and options', async () => {
+  it('calls renderNodeToPng with container and options', async () => {
     vi.mocked(katex.renderToString).mockReturnValue('<span class="katex">x</span>')
 
     const { latexToImage } = await import('../../src/utils/latexToImage.js')
     await latexToImage('x', { scale: 3, backgroundColor: '#000000' })
 
-    expect(toPng).toHaveBeenCalledOnce()
-    const callArgs = vi.mocked(toPng).mock.calls[0]!
+    expect(renderNodeToPng).toHaveBeenCalledOnce()
+    const callArgs = vi.mocked(renderNodeToPng).mock.calls[0]!
     expect(callArgs[0]).toBeInstanceOf(HTMLElement)
     expect(callArgs[1]).toMatchObject({ pixelRatio: 3, backgroundColor: '#000000' })
   })
 
-  it('removes container from DOM after completion', async () => {
+  it('limpia innerHTML del container tras completar', async () => {
     vi.mocked(katex.renderToString).mockReturnValue('<span class="katex">x</span>')
 
     const { latexToImage } = await import('../../src/utils/latexToImage.js')
     await latexToImage('x')
 
     const containers = document.body.querySelectorAll('div')
-    expect(containers.length).toBe(0)
+    expect(containers.length).toBe(1)
+    expect(containers[0]!.innerHTML).toBe('')
   })
 })

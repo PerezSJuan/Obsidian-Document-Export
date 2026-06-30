@@ -63,7 +63,7 @@ export class ObsidianAssetResolver implements AssetResolver {
       return bytes.buffer as ArrayBuffer
     }
     if (isUrl(filePath)) {
-      if (filePath.startsWith('virtual://')) {
+      if (filePath.startsWith('virtual:')) {
         throw new Error(`Virtual file not found: ${filePath}`)
       }
       console.info('[Document Export] asset read remote', { filePath })

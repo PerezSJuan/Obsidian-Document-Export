@@ -37,7 +37,7 @@ export class ExportManager {
       if (!codeMatch) continue
       const code = codeMatch[1]!
       const id = `mermaid-${i}`
-      const virtualPath = `virtual://${id}.png`
+      const virtualPath = `virtual:${id}.png`
       try {
         const pngBuffer = await renderMermaidToPNG(code, id)
         assets.writeVirtual?.(virtualPath, pngBuffer)
