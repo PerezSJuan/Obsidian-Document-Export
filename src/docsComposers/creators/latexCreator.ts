@@ -91,32 +91,41 @@ export class LatexCreator implements Creator {
 
   private collectImages(tokens: Token[]): void {
     for (const token of tokens) {
-      if (token.type === 'paragraph') {
-        for (const t of (token as Tokens.Paragraph).tokens) {
-          if (t.type === 'image') {
-            const href = (t as Tokens.Image).href
-            this.addImage(href)
+      switch (token.type) {
+        case 'paragraph':
+          this.collectImagesFromInline((token as Tokens.Paragraph).tokens)
+          break
+        case 'heading':
+          this.collectImagesFromInline((token as Tokens.Heading).tokens)
+          break
+        case 'list': {
+          const list = token as Tokens.List
+          for (const item of list.items) {
+            if (item.tokens) this.collectImages(item.tokens)
           }
+          break
         }
-      }
-      if (token.type === 'list') {
-        const list = token as Tokens.List
-        for (const item of list.items) {
-          if (item.tokens) this.collectImages(item.tokens)
-        }
-      }
-      if (token.type === 'blockquote') {
-        this.collectImages((token as Tokens.Blockquote).tokens)
-      }
-      if (token.type === 'table') {
-        const table = token as Tokens.Table
-        for (const cell of table.header) {
-          if (cell.tokens) this.collectImagesFromInline(cell.tokens)
-        }
-        for (const row of table.rows) {
-          for (const cell of row) {
+        case 'blockquote':
+          this.collectImages((token as Tokens.Blockquote).tokens)
+          break
+        case 'table': {
+          const table = token as Tokens.Table
+          for (const cell of table.header) {
             if (cell.tokens) this.collectImagesFromInline(cell.tokens)
           }
+          for (const row of table.rows) {
+            for (const cell of row) {
+              if (cell.tokens) this.collectImagesFromInline(cell.tokens)
+            }
+          }
+          break
+        }
+        case 'text': {
+          const textToken = token as Tokens.Text
+          if (textToken.tokens) {
+            this.collectImagesFromInline(textToken.tokens)
+          }
+          break
         }
       }
     }
@@ -127,6 +136,8 @@ export class LatexCreator implements Creator {
       if (t.type === 'image') {
         const href = (t as Tokens.Image).href
         this.addImage(href)
+      } else if ('tokens' in t && (t as { tokens?: Token[] }).tokens) {
+        this.collectImagesFromInline((t as { tokens: Token[] }).tokens)
       }
     }
   }

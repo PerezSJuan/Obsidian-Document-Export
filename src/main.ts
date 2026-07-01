@@ -123,6 +123,8 @@ export default class DocumentExportPlugin extends Plugin {
       fileNames: results.map(r => r.fileName),
     })
 
+    const writtenExtraPaths: string[] = []
+
     for (const result of results) {
       const savePath = joinVaultPath(saveFolder, result.fileName);
       console.info('[Document Export] writing result', {
@@ -159,6 +161,7 @@ export default class DocumentExportPlugin extends Plugin {
       if (result.extraFiles) {
         for (const extra of result.extraFiles) {
           const extraPath = joinVaultPath(saveFolder, extra.name);
+          writtenExtraPaths.push(extraPath);
           console.info('[Document Export] writing extra file', { extraPath })
           const extraExisting = vault.getAbstractFileByPath(extraPath);
           if (extraExisting && extraExisting instanceof TFile) {
@@ -174,6 +177,31 @@ export default class DocumentExportPlugin extends Plugin {
             await vault.createBinary(extraPath, extra.data);
           }
           console.info('[Document Export] wrote extra file', { extraPath })
+        }
+      }
+    }
+
+    // Cleanup: remove temporary image files from the export folder
+    for (const extraPath of writtenExtraPaths) {
+      const fileName = extraPath.split('/').pop() ?? '';
+      const isMermaid = fileName.startsWith('virtual_mermaid');
+      const isFormula = fileName.startsWith('virtual_formula');
+      const isPhoto = !isMermaid && !isFormula;
+
+      if (isMermaid || isFormula) {
+        // Always delete rendered diagram/formula images
+        const file = vault.getAbstractFileByPath(extraPath);
+        if (file && file instanceof TFile) {
+          await vault.delete(file);
+          console.info('[Document Export] cleaned up temporary image', { extraPath })
+        }
+      } else if (isPhoto && !config.output.formats.latex) {
+        // Delete photos only when LaTeX is not being exported
+        // (LaTeX needs the image files for \includegraphics)
+        const file = vault.getAbstractFileByPath(extraPath);
+        if (file && file instanceof TFile) {
+          await vault.delete(file);
+          console.info('[Document Export] cleaned up photo', { extraPath })
         }
       }
     }
