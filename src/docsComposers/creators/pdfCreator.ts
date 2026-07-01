@@ -49,6 +49,10 @@ interface RenderContext {
 }
 
 const PAGE_SIZE: [number, number] = [612, 792]
+// Display formula max height: 0.5 inch (halved again for tighter fit)
+// In PDF points (1 point = 1/72 inch)
+const DISPLAY_FORMULA_MAX_HEIGHT = 28
+const DISPLAY_FORMULA_MAX_WIDTH = 504  // 7 inches at 72 DPI
 const DEFAULT_MARGINS: Margins = {
   top: 72,
   bottom: 72,
@@ -166,6 +170,21 @@ export class PdfCreator implements Creator {
     const imageBytes = new Map<string, Uint8Array>()
     const imageCache = new Map<string, PDFImage>()
     const tokens = marked.lexer(markdown)
+
+    // Log formula-related tokens
+    const formulaParagraphs = tokens.filter(t => t.type === 'paragraph').filter(p =>
+      (p as Tokens.Paragraph).tokens?.some(t2 => t2.type === 'image' && (t2 as Tokens.Image).href?.startsWith('virtual:formula-'))
+    )
+    if (formulaParagraphs.length > 0) {
+      console.info('[PDF] formula paragraphs found', {
+        count: formulaParagraphs.length,
+        firstFew: formulaParagraphs.slice(0, 3).map(p => ({
+          raw: (p as Tokens.Paragraph).raw?.slice(0, 80),
+          tokenTypes: (p as Tokens.Paragraph).tokens.map(t => t.type),
+          tokenHrefs: (p as Tokens.Paragraph).tokens.filter(t => t.type === 'image').map(t => (t as Tokens.Image).href.slice(0, 35)),
+        })),
+      })
+    }
 
     this.currentFontFamily = config.formatting.font
     this.headingSizes = scaleHeadings(config.formatting.baseFontSize)
@@ -515,6 +534,10 @@ export class PdfCreator implements Creator {
     return tokens.length === 1 && tokens[0]?.type === 'image'
   }
 
+  private hasDisplayFormula(tokens: Token[]): boolean {
+    return tokens.some(t => t.type === 'image' && (t as Tokens.Image).href.startsWith('virtual:formula-d-'))
+  }
+
   private async renderParagraph(
     paragraph: Tokens.Paragraph,
     config: ExportConfig,
@@ -524,6 +547,17 @@ export class PdfCreator implements Creator {
     color: PdfColor,
   ): Promise<void> {
     const pieces = this.inlineToPieces(paragraph.tokens)
+    const isImgOnly = this.isImageOnlyParagraph(paragraph.tokens)
+    const hasDisplayF = this.hasDisplayFormula(paragraph.tokens)
+    if (hasDisplayF) {
+      console.info('[PDF] renderParagraph display formula', {
+        tokenTypes: paragraph.tokens.map(t => t.type),
+        hrefs: paragraph.tokens.filter(t => t.type === 'image').map(t => (t as Tokens.Image).href.slice(0, 35)),
+        isImageOnly: isImgOnly,
+        hasDisplayFormula: hasDisplayF,
+        centerContent: isImgOnly || hasDisplayF,
+      })
+    }
     ctx.currentTopY = await this.drawInlinePieces(
       ctx,
       pieces,
@@ -533,7 +567,7 @@ export class PdfCreator implements Creator {
       {
         fontSize,
         color,
-        centerContent: this.isImageOnlyParagraph(paragraph.tokens),
+        centerContent: this.isImageOnlyParagraph(paragraph.tokens) || this.hasDisplayFormula(paragraph.tokens),
       },
     )
     ctx.currentTopY += 8
@@ -935,13 +969,30 @@ export class PdfCreator implements Creator {
           italic: inherited.italic,
         })
         break
-      case 'image':
+      case 'image': {
+        const imageToken = token as Tokens.Image
+        const isDisplayFormula = imageToken.href.startsWith('virtual:formula-d-')
+        
+        // Add a line break before display formulas to ensure proper spacing
+        if (isDisplayFormula && pieces.length > 0) {
+          const lastPiece = pieces[pieces.length - 1]
+          if (lastPiece && lastPiece.type !== 'break') {
+            pieces.push({ type: 'break' })
+          }
+        }
+        
         pieces.push({
           type: 'image',
-          href: (token as Tokens.Image).href,
-          alt: (token as Tokens.Image).text ?? '',
+          href: imageToken.href,
+          alt: imageToken.text ?? '',
         })
+        
+        // Add a line break after display formulas
+        if (isDisplayFormula) {
+          pieces.push({ type: 'break' })
+        }
         break
+      }
       case 'br':
         pieces.push({ type: 'break' })
         break
@@ -1018,6 +1069,15 @@ export class PdfCreator implements Creator {
       if (piece.type === 'image') {
         const isInlineFormula = piece.href.startsWith('virtual:formula-i-')
         const isDisplayFormula = piece.href.startsWith('virtual:formula-d-')
+        if (isDisplayFormula) {
+          console.info('[PDF] display formula detected', {
+            href: piece.href.slice(0, 35),
+            width,
+            maxImageHeight: DISPLAY_FORMULA_MAX_HEIGHT,
+            maxImageWidth: DISPLAY_FORMULA_MAX_WIDTH,
+            centerContent: options.centerContent,
+          })
+        }
         if (!isInlineFormula) {
           flushLine()
         }
@@ -1025,14 +1085,24 @@ export class PdfCreator implements Creator {
         if (!image) {
           continue
         }
-        const maxImageHeight = isInlineFormula
-          ? Math.max(options.fontSize * 1.2, 8)
-          : isDisplayFormula
-            ? 38
+        const maxImageHeight = isDisplayFormula
+          ? DISPLAY_FORMULA_MAX_HEIGHT
+          : isInlineFormula
+            ? Math.max(options.fontSize * 1.2, 8)
             : 220
-        const fit = image.scaleToFit(width, maxImageHeight)
+        // For display formulas, allow using nearly full page width and height
+        const maxImageWidth = isDisplayFormula ? width : width
+        const fit = image.scaleToFit(maxImageWidth, maxImageHeight)
         fit.width = Math.min(fit.width, image.width)
         fit.height = Math.min(fit.height, image.height)
+        if (isDisplayFormula) {
+          console.info('[PDF] display formula sized', {
+            imageWidth: image.width,
+            imageHeight: image.height,
+            fitWidth: fit.width,
+            fitHeight: fit.height,
+          })
+        }
 
         if (isInlineFormula) {
           if (allowPageBreaks && lineStartTopY + options.fontSize > pageBottom) {
@@ -1064,7 +1134,9 @@ export class PdfCreator implements Creator {
             width: fit.width,
             height: fit.height,
           })
-          currentTopY += fit.height + 6
+          // Add extra spacing after display formulas for better visual separation
+          const spacingAfter = isDisplayFormula ? 12 : 6
+          currentTopY += fit.height + spacingAfter
           lineStartTopY = currentTopY
           cursorX = x
         }
@@ -1143,12 +1215,23 @@ export class PdfCreator implements Creator {
         const image = this.imageCacheLookup(ctx, piece.href)
         let fitHeight = 80
         if (image) {
-          const maxImageHeight = piece.href.startsWith('virtual:formula-i-')
-            ? Math.max(fontSize * 1.2, 8)
-            : piece.href.startsWith('virtual:formula-d-')
-              ? 38
+          const maxImageHeight = piece.href.startsWith('virtual:formula-d-')
+            ? DISPLAY_FORMULA_MAX_HEIGHT
+            : piece.href.startsWith('virtual:formula-i-')
+              ? Math.max(fontSize * 1.2, 8)
               : 220
-          fitHeight = Math.min(image.scaleToFit(width, maxImageHeight).height, image.height)
+          const scaled = image.scaleToFit(width, maxImageHeight)
+          fitHeight = Math.min(scaled.height, image.height)
+          if (piece.href.startsWith('virtual:formula-d-')) {
+            console.info('[PDF] measureInlinePieces display formula', {
+              href: piece.href.slice(0, 35),
+              imageWidth: image.width,
+              imageHeight: image.height,
+              maxImageHeight,
+              scaled,
+              fitHeight,
+            })
+          }
         }
         totalHeight += fitHeight + 6
         continue

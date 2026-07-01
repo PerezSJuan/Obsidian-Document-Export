@@ -125,7 +125,7 @@ function protectCodeBlocks(content: string): { protected: ProtectedBlock[]; resu
 
 function restoreCodeBlocks(content: string, blocks: ProtectedBlock[]): string {
   return blocks.reduce(
-    (acc, { placeholder, original }) => acc.replace(placeholder, original),
+    (acc, { placeholder, original }) => acc.replace(placeholder, () => original),
     content,
   )
 }
@@ -227,7 +227,7 @@ function protectMathBlocks(content: string): { protected: ProtectedBlock[]; resu
 
 function restoreMathBlocks(content: string, blocks: ProtectedBlock[]): string {
   return blocks.reduce(
-    (acc, { placeholder, original }) => acc.replace(placeholder, original),
+    (acc, { placeholder, original }) => acc.replace(placeholder, () => original),
     content,
   )
 }

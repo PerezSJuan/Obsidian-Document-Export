@@ -413,6 +413,68 @@ describe('superscript', () => {
   })
 })
 
+describe('math block preservation', () => {
+  it('preserves inline $..$ math', () => {
+    const result = normalizeNote('Hola $\\sqrt{\\omega}$ mundo', 'a.md')
+    expect(result.content).toContain('$\\sqrt{\\omega}$')
+  })
+
+  it('preserves display $$..$$ math', () => {
+    const result = normalizeNote('$$\n\\omega^2 = \\frac{k}{m}\n$$', 'a.md')
+    expect(result.content).toContain('$$')
+    expect(result.content).toContain('\\omega^2 = \\frac{k}{m}')
+  })
+
+  it('preserves mixed inline and display math', () => {
+    const input =
+      'Hola $\\sqrt\\omega$ hola\n\n' +
+      '$$\n\\omega^2 = \\frac{k}{m}\n$$\n\n' +
+      '$$\na^{asdklfj}* \\int^b_a f \\, dx\n$$'
+    const result = normalizeNote(input, 'a.md')
+    expect(result.content).toContain('$\\sqrt\\omega$')
+    expect(result.content).toContain('$$')
+    expect(result.content).toContain('\\omega^2 = \\frac{k}{m}')
+    expect(result.content).toContain('a^{asdklfj}* \\int^b_a f \\, dx')
+  })
+
+  it('preserves display math with multiline content', () => {
+    const result = normalizeNote(
+      'Before\n$$\nfirst line\nsecond line\n$$\nAfter',
+      'a.md',
+    )
+    expect(result.content).toContain('$$\nfirst line\nsecond line\n$$')
+    expect(result.content).toContain('Before')
+    expect(result.content).toContain('After')
+  })
+
+  it('does not corrupt math when subscript (~) appears outside math', () => {
+    const result = normalizeNote('H~2~O and $E=mc^2$', 'a.md')
+    expect(result.content).toContain('<sub>2</sub>')
+    expect(result.content).toContain('$E=mc^2$')
+  })
+
+  it('does not corrupt math when superscript (^) appears outside math', () => {
+    const result = normalizeNote('x^2^ and $\\sqrt{x}$', 'a.md')
+    expect(result.content).toContain('<sup>2</sup>')
+    expect(result.content).toContain('$\\sqrt{x}$')
+  })
+
+  it('preserves display math adjacent to inline math', () => {
+    const result = normalizeNote(
+      '$a=b$\n$$\nc=d\n$$',
+      'a.md',
+    )
+    expect(result.content).toContain('$a=b$')
+    expect(result.content).toContain('$$\nc=d\n$$')
+  })
+
+  it('preserves highlight ==text== outside math', () => {
+    const result = normalizeNote('==importante== and $x$', 'a.md')
+    expect(result.content).toContain('<mark>importante</mark>')
+    expect(result.content).toContain('$x$')
+  })
+})
+
 describe('transformation order', () => {
   it('removes comments before processing wikilinks inside them', () => {
     const result = normalizeNote(

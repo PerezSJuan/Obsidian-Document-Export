@@ -30,6 +30,12 @@ import { highlightCode } from '../../utils/syntaxHighlight.js'
 
 const LVL_KEYS = ['lvl1', 'lvl2', 'lvl3', 'lvl4', 'lvl5', 'lvl6']
 
+// Display formula sizing:
+// - maxWidth: page content width for Letter at 150 DPI with 1" margins (8.5-2)*150
+// - maxHeight: halved from previous, prevents tall formulas from dominating
+const DISPLAY_FORMULA_MAX_WIDTH = 750  // pixels (slightly narrower content area)
+const DISPLAY_FORMULA_MAX_HEIGHT = 44   // pixels (~0.3 inches at 150 DPI)
+
 const HEADING_TO_DOCX: Record<number, string> = {
   1: HeadingLevel.HEADING_1,
   2: HeadingLevel.HEADING_2,
@@ -71,6 +77,22 @@ export class DocxCreator implements Creator {
     this.imageCache.clear()
 
     const tokens = marked.lexer(markdown)
+
+    // Log formula-related tokens
+    const formulaParagraphs = tokens.filter(t => t.type === 'paragraph').filter(p =>
+      (p as Tokens.Paragraph).tokens?.some(t2 => t2.type === 'image' && (t2 as Tokens.Image).href?.startsWith('virtual:formula-'))
+    )
+    if (formulaParagraphs.length > 0) {
+      console.info('[DOCX] formula paragraphs found', {
+        count: formulaParagraphs.length,
+        firstFew: formulaParagraphs.slice(0, 3).map(p => ({
+          type: p.type,
+          raw: (p as Tokens.Paragraph).raw?.slice(0, 80),
+          tokenTypes: (p as Tokens.Paragraph).tokens.map(t => t.type),
+          tokenHrefs: (p as Tokens.Paragraph).tokens.filter(t => t.type === 'image').map(t => (t as Tokens.Image).href.slice(0, 35)),
+        })),
+      })
+    }
 
     await this.collectImages(tokens, assets)
 
@@ -297,7 +319,7 @@ export class DocxCreator implements Creator {
       case 'heading':
         return [this.renderHeading(token as Tokens.Heading, config)]
       case 'paragraph':
-        return [this.renderParagraph(token as Tokens.Paragraph, config)]
+        return this.renderParagraph(token as Tokens.Paragraph, config) as (Paragraph | Table)[]
       case 'text':
         return [this.renderTextBlock(token as Tokens.Text, config)]
       case 'code':
@@ -351,13 +373,84 @@ export class DocxCreator implements Creator {
     return tokens.length === 1 && tokens[0]?.type === 'image'
   }
 
-  private renderParagraph(paragraph: Tokens.Paragraph, config: ExportConfig): Paragraph {
+  private hasDisplayFormula(tokens: Token[]): boolean {
+    return tokens.some(t => t.type === 'image' && (t as Tokens.Image).href.startsWith('virtual:formula-d-'))
+  }
+
+  private renderParagraph(paragraph: Tokens.Paragraph, config: ExportConfig): Paragraph[] {
+    const isImgOnly = this.isImageOnlyParagraph(paragraph.tokens)
+    const hasDisplayF = this.hasDisplayFormula(paragraph.tokens)
+    if (hasDisplayF) {
+      console.info('[DOCX] renderParagraph display formula', {
+        tokenTypes: paragraph.tokens.map(t => t.type),
+        tokenTexts: paragraph.tokens.filter(t => t.type === 'text').map(t => (t as Tokens.Text).text),
+        hrefs: paragraph.tokens.filter(t => t.type === 'image').map(t => (t as Tokens.Image).href.slice(0, 35)),
+        isImageOnly: isImgOnly,
+        hasDisplayFormula: hasDisplayF,
+        raw: paragraph.raw?.slice(0, 100),
+      })
+    }
+    // Check if this paragraph contains a display formula
+    if (hasDisplayF) {
+      // Split paragraph by display formula images to create separate paragraphs
+      return this.splitParagraphByDisplayFormula(paragraph, config)
+    }
+    
     const children = this.inlineToRuns(paragraph.tokens, config)
-    return new Paragraph({
+    return [new Paragraph({
       children,
       alignment: this.isImageOnlyParagraph(paragraph.tokens) ? AlignmentType.CENTER : undefined,
       spacing: { after: 120 },
-    })
+    })]
+  }
+
+  private splitParagraphByDisplayFormula(paragraph: Tokens.Paragraph, config: ExportConfig): Paragraph[] {
+    const result: Paragraph[] = []
+    const tokens = paragraph.tokens
+    let currentTokens: Token[] = []
+    let formulaCount = 0
+
+    for (const token of tokens) {
+      if (token.type === 'image' && (token as Tokens.Image).href.startsWith('virtual:formula-d-')) {
+        formulaCount++
+        console.info('[DOCX] splitParagraphByDisplayFormula processing formula', {
+          formulaIndex: formulaCount,
+          totalTokens: tokens.length,
+          currentAccumulatedTokens: currentTokens.length,
+          href: (token as Tokens.Image).href.slice(0, 35),
+        })
+        // Add any accumulated tokens as a paragraph
+        if (currentTokens.length > 0) {
+          const runs = this.inlineToRuns(currentTokens, config)
+          result.push(new Paragraph({
+            children: runs,
+            spacing: { after: 120 },
+          }))
+          currentTokens = []
+        }
+
+        // Add the formula as a centered paragraph
+        const formulaRuns = this.inlineToRuns([token], config)
+        result.push(new Paragraph({
+          children: formulaRuns,
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 120, after: 120 },
+        }))
+      } else {
+        currentTokens.push(token)
+      }
+    }
+
+    // Add any remaining tokens
+    if (currentTokens.length > 0) {
+      const runs = this.inlineToRuns(currentTokens, config)
+      result.push(new Paragraph({
+        children: runs,
+        spacing: { after: 120 },
+      }))
+    }
+
+    return result.length > 0 ? result : [new Paragraph({ children: [], spacing: { after: 120 } })]
   }
 
   private renderTextBlock(text: Tokens.Text, config: ExportConfig): Paragraph {
@@ -722,12 +815,21 @@ export class DocxCreator implements Creator {
           const actualFontPt = this.baseFontSize / 2
           maxH = Math.max(actualFontPt * 1.2, 8)
         } else if (href.startsWith('virtual:formula-d-')) {
-          maxW = 10000
-          maxH = Math.round(38 * 96 / 72)
+          maxW = DISPLAY_FORMULA_MAX_WIDTH
+          maxH = DISPLAY_FORMULA_MAX_HEIGHT
+          console.info('[DOCX] renderImageRun display formula', {
+            dim,
+            maxW,
+            maxH,
+            href: href.slice(0, 35),
+          })
         }
         const scaled = scaleToFit(dim.width, dim.height, maxW, maxH)
         width = scaled.width
         height = scaled.height
+        if (href.startsWith('virtual:formula-d-')) {
+          console.info('[DOCX] renderImageRun after scale', { scaled, width, height })
+        }
       }
       runs.push(new ImageRun({
         type: ext as 'jpg' | 'png' | 'gif' | 'bmp',

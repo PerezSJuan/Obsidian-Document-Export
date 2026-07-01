@@ -138,7 +138,7 @@ export async function latexToImage(
   await ensureKaTeXCss()
   console.log('[latexToImage] katexLayoutCss available:', !!katexLayoutCss, 'length:', katexLayoutCss?.length)
 
-  const fontSize = displayMode ? 18 : 14
+  const fontSize = displayMode ? 24 : 14
 
   const container = getContainer()
   /* eslint-disable obsidianmd/no-static-styles-assignment */

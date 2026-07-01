@@ -68,8 +68,40 @@ export class ExportManager {
     bodyMd = await this.processMermaidBlocks(bodyMd, assets)
 
     this.log('formula render start', { bodyLength: bodyMd.length, hasDollar: /\$/.test(bodyMd) })
+    // Log a snippet around display math blocks before rendering
+    const beforeMatches = [...bodyMd.matchAll(/\$\$[\s\S]*?\$\$/g)].slice(0, 3)
+    if (beforeMatches.length > 0) {
+      const samples = beforeMatches.map(m => {
+        const idx = m.index ?? 0
+        return {
+          full: m[0].slice(0, 80),
+          before: bodyMd.slice(Math.max(0, idx - 20), idx),
+          after: bodyMd.slice(idx + m[0].length, idx + m[0].length + 20),
+        }
+      })
+      this.log('sample formulas before render', { samples })
+    }
+
     bodyMd = await renderFormulasInMarkdown(bodyMd, assets)
     this.log('formula render done', { bodyLength: bodyMd.length })
+
+    // Log formula image positions in the result
+    const formulaMatches = [...bodyMd.matchAll(/!\[formula\]\(virtual:formula-[^)]+\)/g)]
+    const displayFormulaMatches = formulaMatches.filter(m => m[0].includes('formula-d-'))
+    if (displayFormulaMatches.length > 0) {
+      const firstFew = displayFormulaMatches.slice(0, 3).map(m => {
+        const idx = m.index ?? 0
+        return {
+          index: idx,
+          before: JSON.stringify(bodyMd.slice(Math.max(0, idx - 15), idx)),
+          after: JSON.stringify(bodyMd.slice(idx + m[0].length, idx + m[0].length + 15)),
+        }
+      })
+      this.log('display formula image positions', {
+        count: displayFormulaMatches.length,
+        firstFew,
+      })
+    }
 
     if (formats.latex) {
       const creator = this.creators.get('latex')

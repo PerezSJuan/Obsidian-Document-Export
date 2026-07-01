@@ -21,8 +21,10 @@ function looksLikeInlineMath(s: string): boolean {
 async function renderSingleFormula(tex: string, displayMode: boolean, id: string): Promise<ArrayBuffer | null> {
   log('renderSingleFormula enter', { tex: tex.slice(0, 60), displayMode, id })
   try {
-    const buffer = await latexToImage(tex, { displayMode, scale: 4, backgroundColor: '#ffffff' })
-    log('latexToImage ok', { byteLength: buffer.byteLength })
+    // Use higher scale for display formulas to ensure they are larger and more readable
+    const scale = displayMode ? 6 : 4
+    const buffer = await latexToImage(tex, { displayMode, scale, backgroundColor: '#ffffff' })
+    log('latexToImage ok', { byteLength: buffer.byteLength, scale, displayMode })
     return buffer
   } catch (error) {
     log('renderSingleFormula failed', { error: String(error) })
@@ -66,7 +68,13 @@ export async function renderFormulasInMarkdown(
             displayRendered++
             const virtualPath = `virtual:formula-d-${id}.png`
             assets.writeVirtual?.(virtualPath, pngBuffer)
-            result += `\n![formula](${virtualPath})\n`
+            result += `\n\n![formula](${virtualPath})\n\n`
+            console.info('[FormulaRenderer] display math inserted', {
+              id,
+              virtualPath,
+              beforeInsert: JSON.stringify(result.slice(-60)),
+              afterContext: `...![formula](${virtualPath.slice(0, 30)}...)`,
+            })
             log('display math rendered to PNG', { id, virtualPath })
           } else {
             log('display math render failed, keeping original', { id })
@@ -118,6 +126,17 @@ export async function renderFormulasInMarkdown(
     i++
   }
 
+  // Log a snippet around each display formula image reference for debugging
+  const formulaMatches = [...result.matchAll(/!\[formula\]\(virtual:formula-d-[^)]+\)/g)]
+  let firstFormulaContext: { before: string; after: string } | undefined
+  if (formulaMatches.length > 0) {
+    const m = formulaMatches[0]!
+    const idx = m.index ?? 0
+    firstFormulaContext = {
+      before: JSON.stringify(result.slice(Math.max(0, idx - 30), idx)),
+      after: JSON.stringify(result.slice(idx + m[0].length, idx + m[0].length + 30)),
+    }
+  }
   log('renderFormulasInMarkdown done', {
     resultLength: result.length,
     displayFound,
@@ -126,6 +145,8 @@ export async function renderFormulasInMarkdown(
     inlineRendered,
     hasRemainingDollar: /\$/.test(result),
     resultPreview: result.slice(0, 200),
+    formulaPositions: formulaMatches.length,
+    firstFormulaContext,
   })
   return result
 }
