@@ -294,6 +294,14 @@ const dict: Record<string, LangDict> = {
     vi: 'Xóa thẻ', th: 'ลบแท็ก', id: 'Hapus tag', el: 'Αφαίρεση ετικετών',
     cs: 'Odstranit značky', ro: 'Elimină etichetele', hu: 'Címkék eltávolítása', uk: 'Видалити теги',
   },
+  'dropdown-tag-text': {
+    es: 'Solo texto de etiqueta', en: 'Tag text only', fr: 'Texte de l\'étiquette seulement', de: 'Nur Tag-Text',
+    it: 'Solo testo del tag', pt: 'Apenas texto da tag', nl: 'Alleen tagtekst', ru: 'Только текст тега',
+    zh: '仅标签文本', ja: 'タグテキストのみ', ko: '태그 텍스트만', ar: 'نص الوسم فقط',
+    hi: 'केवल टैग टेक्स्ट', tr: 'Yalnızca etiket metni', pl: 'Tylko tekst tagu', sv: 'Endast taggtext',
+    vi: 'Chỉ văn bản thẻ', th: 'เฉพาะข้อความแท็ก', id: 'Hanya teks tag', el: 'Μόνο κείμενο ετικέτας',
+    cs: 'Pouze text značky', ro: 'Doar textul etichetei', hu: 'Csak a címke szövege', uk: 'Тільки текст тегу',
+  },
   'field-note-name': {
     es: 'Nombre de nota', en: 'Note name', fr: 'Nom de la note', de: 'Notizname',
     it: 'Nome nota', pt: 'Nome da nota', nl: 'Notitienaam', ru: 'Имя заметки',

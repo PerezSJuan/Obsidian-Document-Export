@@ -82,10 +82,10 @@ export function normalizeNote(
 
   const { protected: mathBlocks, result: mathProtected } = protectMathBlocks(content)
   content = mathProtected
+  content = convertBlockRefs(content)
   content = convertSubscript(content)
   content = convertSuperscript(content)
   content = restoreMathBlocks(content, mathBlocks)
-
   content = convertWikilinks(content, options?.wikilinkMode)
   content = convertTags(content, options?.tagMode)
   content = restoreCodeBlocks(content, protectedBlocks)
@@ -240,6 +240,39 @@ function convertSuperscript(content: string): string {
   return content.replace(/\^([^^\n]+)\^/g, '<sup>$1</sup>')
 }
 
+function convertBlockRefs(content: string): string {
+  const blockMap = new Map<string, string>()
+
+  const lines = content.split('\n')
+  const result: string[] = []
+
+  for (const line of lines) {
+    const anchorMatch = line.match(/^(.*?)\s+\^([\w-]+)\s*$/)
+    if (anchorMatch) {
+      blockMap.set(anchorMatch[2]!, anchorMatch[1]!)
+      result.push(anchorMatch[1]!)
+    } else {
+      const standaloneMatch = line.match(/^\s*\^([\w-]+)\s*$/)
+      if (standaloneMatch) {
+        blockMap.set(standaloneMatch[1]!, '')
+      } else {
+        result.push(line)
+      }
+    }
+  }
+
+  content = result.join('\n')
+
+  content = content.replace(
+    /\[\[#\^([\w-]+)(?:\|([^\[\]]+))?\]\]/g,
+    (_match, id, display) => {
+      return blockMap.get(id) ?? (display ?? `#^${id}`)
+    },
+  )
+
+  return content
+}
+
 function convertWikilinks(content: string, mode = 'resolve'): string {
   if (mode === 'strip') {
     return content.replace(/(?<!!)\[\[([^|[\]]+)(?:\|([^[\]]+))?\]\]/g, '')
@@ -257,12 +290,26 @@ function convertWikilinks(content: string, mode = 'resolve'): string {
   )
 }
 
-function convertTags(content: string, mode = 'keep'): string {
+export function convertTags(content: string, mode = 'text'): string {
+  const links: Array<{ placeholder: string; original: string }> = []
+  let counter = 0
+  content = content.replace(/\[[^\]]*\]\([^)]*\)/g, (match) => {
+    const ph = `\x00LINK${counter}\x00`
+    links.push({ placeholder: ph, original: match })
+    counter++
+    return ph
+  })
+
   if (mode === 'strip') {
-    return content.replace(/#[\w/:-]+/g, '')
+    content = content.replace(/#[\w/:-]+/g, '')
+  } else if (mode === 'bold') {
+    content = content.replace(/#[\w/:-]+/g, (match) => `**${match.slice(1)}**`)
+  } else {
+    content = content.replace(/#[\w/:-]+/g, (match) => match.slice(1))
   }
-  if (mode === 'bold') {
-    return content.replace(/#[\w/:-]+/g, (match) => `**${match}**`)
+
+  for (const { placeholder, original } of links) {
+    content = content.replace(placeholder, () => original)
   }
   return content
 }

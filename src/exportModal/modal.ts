@@ -28,7 +28,7 @@ export class ExportVaultModal extends Modal {
 	public manifestSectionEl?: HTMLDivElement;
 	public manualSectionEl?: HTMLDivElement;
 	public wikilinkMode = 'resolve';
-	public tagMode = 'keep';
+	public tagMode = 'text';
 	public noteNameMode = 'none';
 	public indexNotePath = '';
 	public dragIndex = -1;

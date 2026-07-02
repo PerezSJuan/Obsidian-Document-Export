@@ -82,7 +82,7 @@ function buildReferencesSection(container: HTMLDivElement, modal: ExportVaultMod
 	buildFieldLabel(tagField, t('field-tags'));
 	const tagSelect = tagField.createEl('select');
 	[
-		{ value: 'keep', label: t('dropdown-keep-text') },
+		{ value: 'text', label: t('dropdown-tag-text') },
 		{ value: 'bold', label: t('dropdown-convert-bold') },
 		{ value: 'strip', label: t('dropdown-strip-tags') },
 	].forEach((opt) => {

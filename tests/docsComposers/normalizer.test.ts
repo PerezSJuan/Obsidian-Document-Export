@@ -475,6 +475,166 @@ describe('math block preservation', () => {
   })
 })
 
+describe('tags', () => {
+  const TEXT_OPTS = { tagMode: 'text' as const, wikilinkMode: 'resolve', noteNameMode: 'title' }
+
+  it('remove # de tags simples: #obsidian', () => {
+    const result = normalizeNote('Tag #obsidian here.', 'a.md', TEXT_OPTS)
+    expect(result.content).toBe('Tag obsidian here.')
+    expect(result.content).not.toContain('#')
+  })
+
+  it('remove # de tags largas: #productividad', () => {
+    const result = normalizeNote('Etiqueta #productividad.', 'a.md', TEXT_OPTS)
+    expect(result.content).toBe('Etiqueta productividad.')
+    expect(result.content).not.toContain('#')
+  })
+
+  it('remove # de tags con slash: #notas/apunte', () => {
+    const result = normalizeNote('Tag #notas/apunte here.', 'a.md', TEXT_OPTS)
+    expect(result.content).toBe('Tag notas/apunte here.')
+    expect(result.content).not.toContain('#')
+  })
+
+  it('remove # de tags con : namespace: #area:project', () => {
+    const result = normalizeNote('Tag #area:project here.', 'a.md', TEXT_OPTS)
+    expect(result.content).toBe('Tag area:project here.')
+    expect(result.content).not.toContain('#')
+  })
+
+  it('remove # de tags con guion: #my-tag', () => {
+    const result = normalizeNote('Tag #my-tag here.', 'a.md', TEXT_OPTS)
+    expect(result.content).toBe('Tag my-tag here.')
+    expect(result.content).not.toContain('#')
+  })
+
+  it('remove # de tags con numeros: #v2 #tag123', () => {
+    const result = normalizeNote('Tags #v2 and #tag123.', 'a.md', TEXT_OPTS)
+    expect(result.content).toBe('Tags v2 and tag123.')
+    expect(result.content).not.toContain('#')
+  })
+
+  it('remove # de multiples tags en la misma linea: #obsidian #productividad #notas/apunte', () => {
+    const result = normalizeNote('Tags #obsidian #productividad #notas/apunte.', 'a.md', TEXT_OPTS)
+    expect(result.content).toBe('Tags obsidian productividad notas/apunte.')
+    expect(result.content).not.toContain('#')
+  })
+
+  it('remove # de tags al inicio de linea', () => {
+    const result = normalizeNote('#tag\ncontent', 'a.md', TEXT_OPTS)
+    expect(result.content).toBe('tag\ncontent')
+    expect(result.content).not.toContain('#')
+  })
+
+  it('remove # de tags al final de linea', () => {
+    const result = normalizeNote('content #tag', 'a.md', TEXT_OPTS)
+    expect(result.content).toBe('content tag')
+    expect(result.content).not.toContain('#')
+  })
+
+  it('remove # de tags adyacentes a puntuacion: (#tag) #tag, #tag.', () => {
+    const result = normalizeNote('(#tag) #tag, #tag.', 'a.md', TEXT_OPTS)
+    expect(result.content).toBe('(tag) tag, tag.')
+    expect(result.content).not.toContain('#')
+  })
+
+  it('no confunde # de headings con tags', () => {
+    const result = normalizeNote('# Title\n## Sub\nContent #tag.', 'a.md', TEXT_OPTS)
+    expect(result.content).toBe('# Title\n## Sub\nContent tag.')
+    expect(result.content).not.toContain('#tag')
+  })
+
+  it('tags dentro de blockquotes: > #tag', () => {
+    const result = normalizeNote('> #tag\n> text', 'a.md', TEXT_OPTS)
+    expect(result.content).toBe('> tag\n> text')
+    expect(result.content).not.toContain('#')
+  })
+
+  it('tags dentro de listas: - #tag', () => {
+    const result = normalizeNote('- #tag item', 'a.md', TEXT_OPTS)
+    expect(result.content).toBe('- tag item')
+    expect(result.content).not.toContain('#')
+  })
+
+  it('tags dentro de code blocks protegidos no se tocan', () => {
+    const result = normalizeNote('```\n#tag\n```', 'a.md', TEXT_OPTS)
+    expect(result.content).toContain('#tag')
+  })
+
+  it('tags dentro de inline code protegidos no se tocan', () => {
+    const result = normalizeNote('`#tag` here', 'a.md', TEXT_OPTS)
+    expect(result.content).toContain('`#tag`')
+  })
+
+  it('tags en bold mode envuelven en ** sin #', () => {
+    const result = normalizeNote('Tag #tag here.', 'a.md', { tagMode: 'bold', wikilinkMode: 'resolve', noteNameMode: 'title' })
+    expect(result.content).toBe('Tag **tag** here.')
+    expect(result.content).not.toContain('#tag')
+  })
+
+  it('tags en strip mode se eliminan completamente', () => {
+    const result = normalizeNote('Tag #tag here.', 'a.md', { tagMode: 'strip', wikilinkMode: 'resolve', noteNameMode: 'title' })
+    expect(result.content).toBe('Tag  here.')
+  })
+
+  it('text mode por defecto (sin options) tambien remueve #', () => {
+    const result = normalizeNote('Tag #default here.', 'a.md')
+    expect(result.content).toBe('Tag default here.')
+    expect(result.content).not.toContain('#')
+  })
+})
+
+describe('block references', () => {
+  it('elimina ^block-id al final de linea', () => {
+    const result = normalizeNote('Texto importante. ^bloque1\n\nSigue.', 'a.md')
+    expect(result.content).toBe('Texto importante.\n\nSigue.')
+    expect(result.content).not.toContain('^bloque1')
+  })
+
+  it('elimina ^block-id en linea propia', () => {
+    const result = normalizeNote('Texto.\n^bloque1\n\nSigue.', 'a.md')
+    expect(result.content).toBe('Texto.\n\nSigue.')
+    expect(result.content).not.toContain('^bloque1')
+  })
+
+  it('resuelve [[#^block-id]] al contenido del bloque', () => {
+    const result = normalizeNote('Primero. ^bloque1\n\nSegundo.\n\nVer [[#^bloque1]].', 'a.md')
+    expect(result.content).toContain('Primero.')
+    expect(result.content).not.toContain('^bloque1')
+    expect(result.content).not.toContain('[[#^bloque1]]')
+    expect(result.content).toContain('Ver Primero.')
+  })
+
+  it('fallback a texto plano #^id cuando el bloque no existe', () => {
+    const result = normalizeNote('Ver [[#^no-existe]].', 'a.md')
+    expect(result.content).toBe('Ver #^no-existe.')
+  })
+
+  it('fallback a display text cuando el bloque no existe', () => {
+    const result = normalizeNote('Ver [[#^no-existe|mi enlace]].', 'a.md')
+    expect(result.content).toBe('Ver mi enlace.')
+  })
+
+  it('no afecta referencias cross-note [[page#^block-id]]', () => {
+    const result = normalizeNote('Ver [[page#^bloque1]].', 'a.md')
+    expect(result.content).toContain('[page#^bloque1](page)')
+  })
+
+  it('no afecta wikilinks con heading [[page#heading]]', () => {
+    const result = normalizeNote('Ver [[page#seccion]].', 'a.md')
+    expect(result.content).toContain('[page#seccion](page)')
+  })
+
+  it('varios bloques y referencias en el mismo documento', () => {
+    const result = normalizeNote('A. ^a\n\nB. ^b\n\nVer [[#^a]] y [[#^b]].', 'a.md')
+    expect(result.content).toContain('Ver A. y B.')
+    expect(result.content).not.toContain('^a')
+    expect(result.content).not.toContain('^b')
+    expect(result.content).not.toContain('[[#^a]]')
+    expect(result.content).not.toContain('[[#^b]]')
+  })
+})
+
 describe('transformation order', () => {
   it('removes comments before processing wikilinks inside them', () => {
     const result = normalizeNote(

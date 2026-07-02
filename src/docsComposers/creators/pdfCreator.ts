@@ -27,6 +27,12 @@ interface InlinePieceBreak {
 
 type InlinePiece = InlinePieceText | InlinePieceImage | InlinePieceBreak
 
+interface TocEntry {
+  text: string
+  depth: number
+  pageNumber: number
+}
+
 interface Margins {
   top: number
   bottom: number
@@ -46,6 +52,9 @@ interface RenderContext {
   currentTopY: number
   fontFamily: FontFamily
   headingSizes: Record<number, number>
+  tocEntries?: TocEntry[]
+  tocIndex?: number
+  frontMatterCount: number
 }
 
 const PAGE_SIZE: [number, number] = [612, 792]
@@ -177,19 +186,32 @@ export class PdfCreator implements Creator {
       currentTopY: DEFAULT_MARGINS.top,
       fontFamily: config.formatting.font,
       headingSizes: this.headingSizes,
+      frontMatterCount: 0,
     }
+
+    ctx.frontMatterCount = this.frontMatterPageCount(config)
 
     if (config.frontMatter.enableCoverPage && (config.frontMatter.coverImagePath || config.source.metadata.title || config.source.metadata.subtitle || config.source.metadata.author)) {
       await this.renderCoverPage(ctx, config)
     }
 
+    let tocPageIndex = -1
     if (config.frontMatter.toc.enabled) {
-      await this.renderTocPage(ctx, config)
+      ctx.tocEntries = this.extractTocEntries(tokens, config.frontMatter.toc.depth)
+      ctx.tocIndex = 0
+      const page = ctx.pdfDoc.addPage(PAGE_SIZE)
+      tocPageIndex = ctx.pdfDoc.getPageCount() - 1
+      ctx.currentTopY = ctx.margins.top
+      this.renderTocTitle(ctx, config, page)
     }
 
     pdfDoc.addPage(PAGE_SIZE)
     ctx.currentTopY = ctx.margins.top
     await this.renderTokens(tokens, config, ctx)
+
+    if (tocPageIndex >= 0) {
+      this.populateTocPage(ctx, config, tocPageIndex)
+    }
 
     if (config.formatting.pageNumbers.enabled) {
       this.drawPageNumbers(ctx, config)
@@ -320,8 +342,7 @@ export class PdfCreator implements Creator {
     }
   }
 
-  private async renderTocPage(ctx: RenderContext, config: ExportConfig): Promise<void> {
-    const page = ctx.pdfDoc.addPage(PAGE_SIZE)
+  private renderTocTitle(ctx: RenderContext, config: ExportConfig, page: PDFPage): void {
     const fontBold = this.resolveFont(ctx, true, false, false)
     const title = config.frontMatter.toc.title || 'Table of Contents'
     const size = 20
@@ -333,6 +354,80 @@ export class PdfCreator implements Creator {
       font: fontBold,
       color: TEXT_COLOR,
     })
+  }
+
+  private extractTocEntries(tokens: Token[], depth: number): TocEntry[] {
+    const entries: TocEntry[] = []
+    for (const token of tokens) {
+      if (token.type === 'heading') {
+        const heading = token as Tokens.Heading
+        if (heading.depth <= depth) {
+          const text = this.inlineToText(heading.tokens)
+          if (text) {
+            entries.push({ text, depth: heading.depth, pageNumber: 0 })
+          }
+        }
+      }
+    }
+    return entries
+  }
+
+  private inlineToText(tokens: Token[]): string {
+    let text = ''
+    for (const token of tokens) {
+      if (token.type === 'text') {
+        text += (token as Tokens.Text).text
+      } else if ((token.type === 'strong' || token.type === 'em' || token.type === 'link') && hasTokens(token)) {
+        text += this.inlineToText(token.tokens)
+      } else if (token.type === 'codespan') {
+        text += (token as Tokens.Codespan).text
+      }
+    }
+    return text
+  }
+
+  private populateTocPage(
+    ctx: RenderContext,
+    config: ExportConfig,
+    tocPageIndex: number,
+  ): void {
+    const page = ctx.pdfDoc.getPages()[tocPageIndex]
+    if (!page || !ctx.tocEntries || ctx.tocEntries.length === 0) return
+
+    const fontRegular = this.resolveFont(ctx, false, false, false)
+    const entrySize = 10
+    const lineGap = entrySize * 1.6
+    let yPos = ctx.margins.top + 10
+
+    for (const entry of ctx.tocEntries) {
+      if (yPos + lineGap > ctx.pageHeight - ctx.margins.bottom) break
+
+      const indent = (entry.depth - 1) * 15
+      const x = ctx.margins.left + indent
+
+      page.drawText(entry.text, {
+        x,
+        y: this.toPdfY(ctx, yPos, entrySize),
+        size: entrySize,
+        font: fontRegular,
+        color: TEXT_COLOR,
+      })
+
+      if (entry.pageNumber > 0) {
+        const pageNumStr = String(entry.pageNumber)
+        const pageNumWidth = fontRegular.widthOfTextAtSize(pageNumStr, entrySize)
+        const pageNumX = ctx.pageWidth - ctx.margins.right - pageNumWidth
+        page.drawText(pageNumStr, {
+          x: pageNumX,
+          y: this.toPdfY(ctx, yPos, entrySize),
+          size: entrySize,
+          font: fontRegular,
+          color: TEXT_COLOR,
+        })
+      }
+
+      yPos += lineGap
+    }
   }
 
   private async collectImages(tokens: Token[], assets: AssetResolver, cache: Map<string, Uint8Array>): Promise<void> {
@@ -467,6 +562,14 @@ export class PdfCreator implements Creator {
     if (isStructural && heading.depth <= 1) {
       ctx.pdfDoc.addPage(PAGE_SIZE)
       ctx.currentTopY = ctx.margins.top
+    }
+
+    if (ctx.tocEntries && heading.depth <= config.frontMatter.toc.depth) {
+      const entry = ctx.tocEntries[ctx.tocIndex ?? 0]
+      if (entry) {
+        entry.pageNumber = ctx.pdfDoc.getPageCount() - ctx.frontMatterCount
+        ctx.tocIndex = (ctx.tocIndex ?? 0) + 1
+      }
     }
 
     if (command === 'inline' || command === 'paragraph' || command === 'bold' || command === 'italic') {

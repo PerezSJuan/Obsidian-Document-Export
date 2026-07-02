@@ -27,7 +27,7 @@ export const DEFAULT_SETTINGS: DocumentExportSettings = {
 			lvl6: 'inline',
 		},
 		wikilinkMode: 'resolve',
-		tagMode: 'keep',
+		tagMode: 'text',
 		noteNameMode: 'none',
 	},
 	frontMatter: {
@@ -222,7 +222,7 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 			.setName(t('settings-tags'))
 			.setDesc(t('settings-tags-desc'))
 			.addDropdown((dropdown) => {
-				dropdown.addOption('keep', t('dropdown-keep-text'));
+				dropdown.addOption('text', t('dropdown-tag-text'));
 				dropdown.addOption('bold', t('dropdown-convert-bold'));
 				dropdown.addOption('strip', t('dropdown-strip-tags'));
 				dropdown.setValue(settings.structure.tagMode);

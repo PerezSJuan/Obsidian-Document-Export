@@ -346,10 +346,12 @@ export class DocxCreator implements Creator {
       })
     }
 
+    const isStructural = command && !['inline', 'paragraph', 'bold', 'italic'].includes(command)
     const level = HEADING_TO_DOCX[heading.depth]
     return new Paragraph({
       heading: level as typeof HeadingLevel.HEADING_1,
       children: runs,
+      pageBreakBefore: !!(isStructural && heading.depth <= 1),
     })
   }
 

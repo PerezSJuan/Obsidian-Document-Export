@@ -1,6 +1,7 @@
 import type { ExportConfig } from '../types.js'
 import type { AssetResolver } from './creators/assetResolver.js'
 import type { Creator } from './creators/creator.js'
+import { convertTags } from './normalizer.js'
 import { renderMermaidToPNG } from '../utils/mermaidRenderer.js'
 import { renderFormulasInMarkdown } from '../utils/formulaRenderer.js'
 
@@ -52,6 +53,8 @@ export class ExportManager {
     bodyMd = await this.processMermaidBlocks(bodyMd, assets)
 
     bodyMd = await renderFormulasInMarkdown(bodyMd, assets)
+
+    bodyMd = convertTags(bodyMd, config.structure.tagMode)
 
     if (formats.latex) {
       const creator = this.creators.get('latex')
