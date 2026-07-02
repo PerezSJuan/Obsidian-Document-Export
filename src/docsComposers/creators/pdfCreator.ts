@@ -52,7 +52,6 @@ const PAGE_SIZE: [number, number] = [612, 792]
 // Display formula max height: 0.5 inch (halved again for tighter fit)
 // In PDF points (1 point = 1/72 inch)
 const DISPLAY_FORMULA_MAX_HEIGHT = 28
-const DISPLAY_FORMULA_MAX_WIDTH = 504  // 7 inches at 72 DPI
 const DEFAULT_MARGINS: Margins = {
   top: 72,
   bottom: 72,
@@ -133,16 +132,6 @@ const FONT_MAP: Record<
   },
 }
 
-const FONT_FALLBACK_WARN: Record<FontFamily, string | null> = {
-  'times-new-roman': null,
-  arial: 'Arial is not a standard PDF font; using Helvetica as fallback',
-  calibri: 'Calibri is not a standard PDF font; using Helvetica as fallback',
-  georgia: 'Georgia is not a standard PDF font; using Times-Roman as fallback',
-  garamond: 'Garamond is not a standard PDF font; using Times-Roman as fallback',
-  verdana: 'Verdana is not a standard PDF font; using Helvetica as fallback',
-  'courier-new': null,
-  consolas: 'Consolas is not a standard PDF font; using Courier as fallback',
-}
 
 const TEXT_COLOR = rgb(0, 0, 0)
 const QUOTE_COLOR = rgb(0.33, 0.33, 0.33)
@@ -171,26 +160,8 @@ export class PdfCreator implements Creator {
     const imageCache = new Map<string, PDFImage>()
     const tokens = marked.lexer(markdown)
 
-    // Log formula-related tokens
-    const formulaParagraphs = tokens.filter(t => t.type === 'paragraph').filter(p =>
-      (p as Tokens.Paragraph).tokens?.some(t2 => t2.type === 'image' && (t2 as Tokens.Image).href?.startsWith('virtual:formula-'))
-    )
-    if (formulaParagraphs.length > 0) {
-      console.info('[PDF] formula paragraphs found', {
-        count: formulaParagraphs.length,
-        firstFew: formulaParagraphs.slice(0, 3).map(p => ({
-          raw: (p as Tokens.Paragraph).raw?.slice(0, 80),
-          tokenTypes: (p as Tokens.Paragraph).tokens.map(t => t.type),
-          tokenHrefs: (p as Tokens.Paragraph).tokens.filter(t => t.type === 'image').map(t => (t as Tokens.Image).href.slice(0, 35)),
-        })),
-      })
-    }
-
     this.currentFontFamily = config.formatting.font
     this.headingSizes = scaleHeadings(config.formatting.baseFontSize)
-
-    const warnMsg = FONT_FALLBACK_WARN[config.formatting.font]
-    if (warnMsg) console.warn(warnMsg)
 
     await this.collectImages(tokens, assets, imageBytes)
 
@@ -302,7 +273,7 @@ export class PdfCreator implements Creator {
           })
         }
       } catch {
-        console.warn(`Could not load cover image: ${coverPath}`)
+        // cover image read failed
       }
       return
     }
@@ -382,7 +353,7 @@ export class PdfCreator implements Creator {
           const bytes = await this.loadAssetBytes({ assets }, img.href, '')
           cache.set(img.href, bytes)
         } catch {
-          console.warn(`Could not read image: ${img.href}`)
+          // image read failed
         }
       }
     }
@@ -547,17 +518,6 @@ export class PdfCreator implements Creator {
     color: PdfColor,
   ): Promise<void> {
     const pieces = this.inlineToPieces(paragraph.tokens)
-    const isImgOnly = this.isImageOnlyParagraph(paragraph.tokens)
-    const hasDisplayF = this.hasDisplayFormula(paragraph.tokens)
-    if (hasDisplayF) {
-      console.info('[PDF] renderParagraph display formula', {
-        tokenTypes: paragraph.tokens.map(t => t.type),
-        hrefs: paragraph.tokens.filter(t => t.type === 'image').map(t => (t as Tokens.Image).href.slice(0, 35)),
-        isImageOnly: isImgOnly,
-        hasDisplayFormula: hasDisplayF,
-        centerContent: isImgOnly || hasDisplayF,
-      })
-    }
     ctx.currentTopY = await this.drawInlinePieces(
       ctx,
       pieces,
@@ -602,9 +562,6 @@ export class PdfCreator implements Creator {
     ctx: RenderContext,
     indent: number,
   ): Promise<void> {
-    if (code.lang === 'mermaid') {
-      console.info('[Document Export] pdf mermaid block', { length: code.text.length })
-    }
     const padding = 8
     const lineHeight = 12
     const fontSize = 9
@@ -703,7 +660,6 @@ export class PdfCreator implements Creator {
   ): Promise<void> {
     const startPageIndex = ctx.pdfDoc.getPageCount() - 1
     const startTopY = ctx.currentTopY
-    const innerIndent = indent + 12
 
     let isCallout = false
     let calloutType = ''
@@ -1069,15 +1025,6 @@ export class PdfCreator implements Creator {
       if (piece.type === 'image') {
         const isInlineFormula = piece.href.startsWith('virtual:formula-i-')
         const isDisplayFormula = piece.href.startsWith('virtual:formula-d-')
-        if (isDisplayFormula) {
-          console.info('[PDF] display formula detected', {
-            href: piece.href.slice(0, 35),
-            width,
-            maxImageHeight: DISPLAY_FORMULA_MAX_HEIGHT,
-            maxImageWidth: DISPLAY_FORMULA_MAX_WIDTH,
-            centerContent: options.centerContent,
-          })
-        }
         if (!isInlineFormula) {
           flushLine()
         }
@@ -1095,14 +1042,6 @@ export class PdfCreator implements Creator {
         const fit = image.scaleToFit(maxImageWidth, maxImageHeight)
         fit.width = Math.min(fit.width, image.width)
         fit.height = Math.min(fit.height, image.height)
-        if (isDisplayFormula) {
-          console.info('[PDF] display formula sized', {
-            imageWidth: image.width,
-            imageHeight: image.height,
-            fitWidth: fit.width,
-            fitHeight: fit.height,
-          })
-        }
 
         if (isInlineFormula) {
           if (allowPageBreaks && lineStartTopY + options.fontSize > pageBottom) {
@@ -1222,16 +1161,6 @@ export class PdfCreator implements Creator {
               : 220
           const scaled = image.scaleToFit(width, maxImageHeight)
           fitHeight = Math.min(scaled.height, image.height)
-          if (piece.href.startsWith('virtual:formula-d-')) {
-            console.info('[PDF] measureInlinePieces display formula', {
-              href: piece.href.slice(0, 35),
-              imageWidth: image.width,
-              imageHeight: image.height,
-              maxImageHeight,
-              scaled,
-              fitHeight,
-            })
-          }
         }
         totalHeight += fitHeight + 6
         continue

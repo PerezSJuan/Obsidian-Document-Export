@@ -51,7 +51,6 @@ function getMime(url: string): string {
 }
 
 async function embedFontsInCss(cssText: string): Promise<string> {
-  // Extraer solo bloques @font-face
   const fontFaceRegex = /@font-face\s*\{[^}]*\}/g
   const fontFaces: string[] = []
   let fm
@@ -66,6 +65,7 @@ async function embedFontsInCss(cssText: string): Promise<string> {
       const resolved = url.startsWith('https://')
         ? url
         : new URL(url, KATEX_CSS_URL).href
+      // eslint-disable-next-line no-restricted-globals
       const res = await fetch(resolved)
       const buffer = await res.arrayBuffer()
       const dataUri = await bufferToBase64(buffer, getMime(url))
@@ -81,32 +81,27 @@ async function embedFontsInCss(cssText: string): Promise<string> {
 async function ensureKaTeXCss(): Promise<void> {
   if (katexLayoutCss !== null) return
   try {
+    // eslint-disable-next-line no-restricted-globals
     const response = await fetch(KATEX_CSS_URL)
     let cssText = await response.text()
     cssText = cssText.replace(/@font-face\s*\{[^}]*\}/g, '')
     katexLayoutCss = cssText
-    console.log('[latexToImage] KaTeX layout CSS cached (', cssText.length, 'bytes)')
-  } catch (e) {
-    console.warn('[latexToImage] Failed to fetch KaTeX CSS:', e)
+  } catch {
+    // kaTeX CSS fetch failed
   }
 }
 
 async function getFontEmbedCss(): Promise<string> {
   if (fontEmbedCss !== null) {
-    console.log('[latexToImage] Using cached fontEmbedCSS')
     return fontEmbedCss
   }
   try {
-    console.log('[latexToImage] Fetching KaTeX CSS for font embedding...')
+    // eslint-disable-next-line no-restricted-globals
     const response = await fetch(KATEX_CSS_URL)
     let cssText = await response.text()
-    console.log('[latexToImage] KaTeX CSS fetched, embedding fonts as data URIs...')
     fontEmbedCss = await embedFontsInCss(cssText)
-    const fontCount = (fontEmbedCss.match(/@font-face/g) || []).length
-    console.log(`[latexToImage] Font embedding done: ${fontCount} @font-face rules (${fontEmbedCss.length} bytes)`)
     return fontEmbedCss
-  } catch (e) {
-    console.warn('[latexToImage] Failed to embed fonts, will rely on CDN <link>:', e)
+  } catch {
     fontEmbedCss = ''
     return ''
   }
@@ -129,21 +124,15 @@ export async function latexToImage(
     backgroundColor = '#ffffff',
     katexOptions,
   } = options
-  console.log("LATEX:", latex)
 
   const katex = await getKatex()
   const html = katex.renderToString(latex, { ...katexOptions, displayMode: true, throwOnError: true })
-  console.log('[latexToImage] katex HTML (first 200):', html.slice(0, 200))
 
   await ensureKaTeXCss()
-  console.log('[latexToImage] katexLayoutCss available:', !!katexLayoutCss, 'length:', katexLayoutCss?.length)
 
   const fontSize = displayMode ? 24 : 14
 
   const container = getContainer()
-  /* eslint-disable obsidianmd/no-static-styles-assignment */
-  container.style.fontSize = `${fontSize}px`
-  /* eslint-enable obsidianmd/no-static-styles-assignment */
 
   let innerHtml = ''
   if (katexLayoutCss) {
@@ -153,41 +142,26 @@ export async function latexToImage(
   /* eslint-disable no-unsanitized/property, @microsoft/sdl/no-inner-html */
   container.innerHTML = innerHtml
   /* eslint-enable no-unsanitized/property, @microsoft/sdl/no-inner-html */
-  const styleEl = container.querySelector('style[data-katex]')
-  console.log('[latexToImage] <style> inside container:', !!styleEl, 'innerHTML length:', container.innerHTML.length)
 
-  const katexEls = container.querySelectorAll('.katex')
-  console.log('[latexToImage] .katex elements found:', katexEls.length)
+  container.style.fontSize = `${fontSize}px`
 
   for (const el of Array.from(container.querySelectorAll<HTMLElement>('.katex, .katex-display'))) {
+    /* eslint-disable-next-line obsidianmd/no-static-styles-assignment */
     el.style.color = '#000'
+    /* eslint-disable-next-line obsidianmd/no-static-styles-assignment */
     el.style.margin = '0'
+    /* eslint-disable-next-line obsidianmd/no-static-styles-assignment */
     el.style.padding = '0'
   }
-  console.log('[latexToImage] .katex inline styles set')
 
   try {
+    // eslint-disable-next-line obsidianmd/prefer-active-doc
     if (document.fonts) {
-      console.log('[latexToImage] awaiting document.fonts.ready...')
+      // eslint-disable-next-line obsidianmd/prefer-active-doc
       await document.fonts.ready
-      console.log('[latexToImage] document.fonts.ready done')
-    } else {
-      console.log('[latexToImage] document.fonts not available')
     }
 
     const katexFontCss = await getFontEmbedCss()
-    console.log('[latexToImage] Calling toPng, fontEmbedCSS length:', katexFontCss.length)
-
-    console.log('[latexToImage] container.innerHTML (first 3000):', container.innerHTML.slice(0, 3000))
-
-    const katexHtml = container.querySelector('.katex-html')
-    console.log('[latexToImage] .katex-html (first 2000):', katexHtml?.innerHTML?.slice(0, 2000))
-
-    const svgs = container.querySelectorAll('svg')
-    console.log('[latexToImage] inline SVGs found:', svgs.length)
-    svgs.forEach((s, i) => {
-      console.log(`[latexToImage] svg[${i}] ns:`, s.namespaceURI, 'width:', s.getAttribute('width'), 'inner:', s.innerHTML.slice(0, 200))
-    })
 
     container.querySelectorAll('.katex-mathml').forEach(e => e.remove())
 
@@ -196,24 +170,19 @@ export async function latexToImage(
       backgroundColor,
       fontEmbedCSS: katexFontCss || undefined,
     })
-    console.log('[latexToImage] renderNodeToPng dataUrl length:', dataUrl.length, 'starts with:', dataUrl.slice(0, 50))
 
     const base64 = dataUrl.split(',')[1]
     if (!base64) {
-      console.error('[latexToImage] No base64 part in dataUrl')
       throw new Error('Failed to encode PNG')
     }
-    console.log('[latexToImage] base64 length:', base64.length)
 
     const binaryStr = atob(base64)
     const bytes = new Uint8Array(binaryStr.length)
     for (let i = 0; i < binaryStr.length; i++) {
       bytes[i] = binaryStr.charCodeAt(i)
     }
-    console.log('[latexToImage] final buffer size:', bytes.buffer.byteLength)
     return bytes.buffer
   } finally {
     container.innerHTML = ''
-    console.log('[latexToImage] container cleaned')
   }
 }

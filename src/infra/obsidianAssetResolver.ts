@@ -12,14 +12,17 @@ function isDataUri(path: string): boolean {
 const REMOTE_READ_TIMEOUT_MS = 10000
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  // eslint-disable-next-line obsidianmd/prefer-window-timers
   let timeoutId: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<T>((_, reject) => {
+    // eslint-disable-next-line obsidianmd/prefer-window-timers
     timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs)
   })
 
   try {
     return await Promise.race([promise, timeout])
   } finally {
+    // eslint-disable-next-line obsidianmd/prefer-window-timers
     if (timeoutId !== undefined) clearTimeout(timeoutId)
   }
 }
@@ -44,13 +47,10 @@ export class ObsidianAssetResolver implements AssetResolver {
   }
 
   async read(filePath: string): Promise<ArrayBuffer> {
-    console.info('[Document Export] asset read start', { filePath })
     if (this.virtualFiles.has(filePath)) {
-      console.info('[Document Export] asset read virtual', { filePath })
       return this.virtualFiles.get(filePath)!
     }
     if (isDataUri(filePath)) {
-      console.info('[Document Export] asset read data uri', { filePath: filePath.substring(0, 50) })
       const commaIdx = filePath.indexOf(',')
       if (commaIdx === -1) throw new Error(`Invalid data URI: no comma`)
       const base64 = filePath.substring(commaIdx + 1)
@@ -59,20 +59,17 @@ export class ObsidianAssetResolver implements AssetResolver {
       for (let i = 0; i < binaryStr.length; i++) {
         bytes[i] = binaryStr.charCodeAt(i)
       }
-      console.info('[Document Export] asset read data uri done', { bytes: bytes.length })
-      return bytes.buffer as ArrayBuffer
+      return bytes.buffer
     }
     if (isUrl(filePath)) {
       if (filePath.startsWith('virtual:')) {
         throw new Error(`Virtual file not found: ${filePath}`)
       }
-      console.info('[Document Export] asset read remote', { filePath })
       const resp = await withTimeout(
         requestUrl({ url: filePath }),
         REMOTE_READ_TIMEOUT_MS,
         `Remote image read timed out: ${filePath}`,
       )
-      console.info('[Document Export] asset read remote done', { filePath })
       return resp.arrayBuffer
     }
 
@@ -80,9 +77,7 @@ export class ObsidianAssetResolver implements AssetResolver {
     if (!file || !(file instanceof TFile)) {
       throw new Error(`File not found: ${filePath}`)
     }
-    console.info('[Document Export] asset read vault file', { filePath })
     const data = await this.vault.readBinary(file)
-    console.info('[Document Export] asset read vault done', { filePath, bytes: data.byteLength })
     return data
   }
 }

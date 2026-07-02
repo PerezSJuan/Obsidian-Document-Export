@@ -78,22 +78,6 @@ export class DocxCreator implements Creator {
 
     const tokens = marked.lexer(markdown)
 
-    // Log formula-related tokens
-    const formulaParagraphs = tokens.filter(t => t.type === 'paragraph').filter(p =>
-      (p as Tokens.Paragraph).tokens?.some(t2 => t2.type === 'image' && (t2 as Tokens.Image).href?.startsWith('virtual:formula-'))
-    )
-    if (formulaParagraphs.length > 0) {
-      console.info('[DOCX] formula paragraphs found', {
-        count: formulaParagraphs.length,
-        firstFew: formulaParagraphs.slice(0, 3).map(p => ({
-          type: p.type,
-          raw: (p as Tokens.Paragraph).raw?.slice(0, 80),
-          tokenTypes: (p as Tokens.Paragraph).tokens.map(t => t.type),
-          tokenHrefs: (p as Tokens.Paragraph).tokens.filter(t => t.type === 'image').map(t => (t as Tokens.Image).href.slice(0, 35)),
-        })),
-      })
-    }
-
     await this.collectImages(tokens, assets)
 
     const children = this.buildChildren(tokens, config)
@@ -264,7 +248,7 @@ export class DocxCreator implements Creator {
       const data = await assets.read(src)
       this.imageCache.set(href, Buffer.from(data))
     } catch {
-      console.warn(`Could not read image: ${href}`)
+      // image read failed silently
     }
   }
 
@@ -319,7 +303,7 @@ export class DocxCreator implements Creator {
       case 'heading':
         return [this.renderHeading(token as Tokens.Heading, config)]
       case 'paragraph':
-        return this.renderParagraph(token as Tokens.Paragraph, config) as (Paragraph | Table)[]
+        return this.renderParagraph(token as Tokens.Paragraph, config)
       case 'text':
         return [this.renderTextBlock(token as Tokens.Text, config)]
       case 'code':
@@ -378,18 +362,7 @@ export class DocxCreator implements Creator {
   }
 
   private renderParagraph(paragraph: Tokens.Paragraph, config: ExportConfig): Paragraph[] {
-    const isImgOnly = this.isImageOnlyParagraph(paragraph.tokens)
     const hasDisplayF = this.hasDisplayFormula(paragraph.tokens)
-    if (hasDisplayF) {
-      console.info('[DOCX] renderParagraph display formula', {
-        tokenTypes: paragraph.tokens.map(t => t.type),
-        tokenTexts: paragraph.tokens.filter(t => t.type === 'text').map(t => (t as Tokens.Text).text),
-        hrefs: paragraph.tokens.filter(t => t.type === 'image').map(t => (t as Tokens.Image).href.slice(0, 35)),
-        isImageOnly: isImgOnly,
-        hasDisplayFormula: hasDisplayF,
-        raw: paragraph.raw?.slice(0, 100),
-      })
-    }
     // Check if this paragraph contains a display formula
     if (hasDisplayF) {
       // Split paragraph by display formula images to create separate paragraphs
@@ -408,17 +381,9 @@ export class DocxCreator implements Creator {
     const result: Paragraph[] = []
     const tokens = paragraph.tokens
     let currentTokens: Token[] = []
-    let formulaCount = 0
 
     for (const token of tokens) {
       if (token.type === 'image' && (token as Tokens.Image).href.startsWith('virtual:formula-d-')) {
-        formulaCount++
-        console.info('[DOCX] splitParagraphByDisplayFormula processing formula', {
-          formulaIndex: formulaCount,
-          totalTokens: tokens.length,
-          currentAccumulatedTokens: currentTokens.length,
-          href: (token as Tokens.Image).href.slice(0, 35),
-        })
         // Add any accumulated tokens as a paragraph
         if (currentTokens.length > 0) {
           const runs = this.inlineToRuns(currentTokens, config)
@@ -460,7 +425,6 @@ export class DocxCreator implements Creator {
 
   private renderCode(code: Tokens.Code): Paragraph[] {
     if (code.lang === 'mermaid') {
-      console.info('[Document Export] docx mermaid block', { length: code.text.length })
       return [new Paragraph({
         children: [new TextRun({ text: 'Mermaid Diagram: Cannot be natively rendered in DOCX/PDF.', font: this.fontName, size: this.baseFontSize, bold: true })],
         indent: { left: 400 },
@@ -817,19 +781,10 @@ export class DocxCreator implements Creator {
         } else if (href.startsWith('virtual:formula-d-')) {
           maxW = DISPLAY_FORMULA_MAX_WIDTH
           maxH = DISPLAY_FORMULA_MAX_HEIGHT
-          console.info('[DOCX] renderImageRun display formula', {
-            dim,
-            maxW,
-            maxH,
-            href: href.slice(0, 35),
-          })
         }
         const scaled = scaleToFit(dim.width, dim.height, maxW, maxH)
         width = scaled.width
         height = scaled.height
-        if (href.startsWith('virtual:formula-d-')) {
-          console.info('[DOCX] renderImageRun after scale', { scaled, width, height })
-        }
       }
       runs.push(new ImageRun({
         type: ext as 'jpg' | 'png' | 'gif' | 'bmp',

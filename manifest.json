@@ -2,7 +2,7 @@
 	"id": "obsidian-document-export",
 	"name": "Document Export",
 	"version": "1.0.0",
-	"minAppVersion": "1.4.0",
+	"minAppVersion": "1.6.6",
 	"description": "Export your vault to PDF, DOCX, or LaTeX book formats.",
 	"author": "Juan Pérez Sierra",
 	"isDesktopOnly": false

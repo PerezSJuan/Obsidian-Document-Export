@@ -28,16 +28,6 @@ const FONT_PACKAGES: Record<FontFamily, string[]> = {
   consolas: ['\\usepackage{zi4}', '\\usepackage[T1]{fontenc}'],
 }
 
-const FONT_FALLBACK_WARN: Record<FontFamily, string | null> = {
-  'times-new-roman': null,
-  arial: null,
-  calibri: 'Calibri requires XeLaTeX/LuaLaTeX with fontspec; falling back to lmodern',
-  georgia: 'Georgia has no standard LaTeX package; falling back to lmodern',
-  garamond: null,
-  verdana: 'Verdana has no standard LaTeX package; falling back to lmodern',
-  'courier-new': null,
-  consolas: null,
-}
 
 export class LatexCreator implements Creator {
   private imagePathMap = new Map<string, string>()
@@ -47,39 +37,25 @@ export class LatexCreator implements Creator {
     config: ExportConfig,
     assets: AssetResolver,
   ): Promise<RenderResult> {
-    console.info('[Document Export] latex render begin', { bodyLength: markdown.length })
     this.imagePathMap.clear()
-    console.info('[Document Export] latex lexer start')
     const tokens = marked.lexer(markdown)
-    console.info('[Document Export] latex lexer done', { tokenCount: tokens.length })
 
-    console.info('[Document Export] latex collect images start')
     this.collectImages(tokens)
-    console.info('[Document Export] latex collect images done', { imageCount: this.imagePathMap.size })
 
-    console.info('[Document Export] latex preamble start')
     const preamble = this.buildPreamble(config)
-    console.info('[Document Export] latex preamble done', { preambleLength: preamble.length })
 
-    console.info('[Document Export] latex body render start')
     const body = this.renderTokens(tokens, config)
-    console.info('[Document Export] latex body render done', { bodyLength: body.length })
 
     const extraFiles: { name: string; data: ArrayBuffer }[] = []
-    console.info('[Document Export] latex extra files start', { imageCount: this.imagePathMap.size })
     for (const [origPath, safePath] of this.imagePathMap) {
       try {
-        console.info('[Document Export] latex extra file read start', { origPath, safePath })
         const resolved = assets.resolve(origPath, '')
-        console.info('[Document Export] latex extra file resolved', { origPath, resolved })
         const data = await assets.read(resolved)
-        console.info('[Document Export] latex extra file read done', { origPath, bytes: data.byteLength })
         extraFiles.push({ name: safePath, data })
       } catch {
-        console.warn(`Could not read image: ${origPath}`)
+        // image read failed silently
       }
     }
-    console.info('[Document Export] latex extra files done', { extraCount: extraFiles.length })
 
     const result: RenderResult = {
       data: preamble + body + '\n\\end{document}\n',
@@ -157,9 +133,6 @@ export class LatexCreator implements Creator {
     const meta = config.source.metadata
     const font = config.formatting.font
     const fontSize = config.formatting.baseFontSize
-
-    const warnMsg = FONT_FALLBACK_WARN[font]
-    if (warnMsg) console.warn(warnMsg)
 
     const lines: string[] = [
       `\\documentclass[${fontSize}pt]{book}`,
@@ -409,7 +382,6 @@ export class LatexCreator implements Creator {
 
   private renderCode(code: Tokens.Code): string {
     if (code.lang === 'mermaid') {
-      console.info('[Document Export] latex mermaid block', { length: code.text.length })
       return `\\begin{center}\\fbox{\\begin{minipage}{0.9\\textwidth}\n\\textbf{Mermaid}: Diagram cannot be natively rendered in LaTeX/PDF.\n\\end{minipage}}\\end{center}`
     }
     if (code.lang) {

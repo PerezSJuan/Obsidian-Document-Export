@@ -82,6 +82,7 @@ describe('latexToImage', () => {
     const { latexToImage } = await import('../../src/utils/latexToImage.js')
     await latexToImage('x')
 
+    // eslint-disable-next-line obsidianmd/prefer-active-doc
     const containers = document.body.querySelectorAll('div')
     expect(containers.length).toBe(1)
     expect(containers[0]!.innerHTML).toBe('')
