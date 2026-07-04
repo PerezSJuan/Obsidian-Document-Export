@@ -77,8 +77,4 @@ function buildTableOfContentsSection(container: HTMLDivElement, modal: ExportVau
 	depthSelect.addEventListener('change', () => {
 		modal.tocDepth = Number(depthSelect.value);
 	});
-
-	createTextField(tocFields, t('field-title'), modal.tocTitle, (value) => {
-		modal.tocTitle = value;
-	});
 }

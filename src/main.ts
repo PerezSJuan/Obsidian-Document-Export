@@ -2,6 +2,7 @@ import {
   Plugin,
   TFile,
   TFolder,
+  Vault,
   Notice,
 } from 'obsidian';
 import {
@@ -9,9 +10,9 @@ import {
   DocumentExportSettings,
   DocumentExportSettingTab,
 } from './settings.js';
-import { ExportVaultModal } from './exportModal/index.js';
-import type { ExportConfig, NormalizedNote } from './types.js';
-import { normalizeNote, resolveEmbeds, resolveImagePaths } from './docsComposers/normalizer.js';
+import { ExportVaultModal, ExportProgressModal } from './exportModal/index.js';
+import type { ExportConfig, NormalizedNote, NoteMapEntry } from './types.js';
+import { normalizeNote, resolveEmbeds, resolveImagePaths, parseFrontmatter, resolveTitle } from './docsComposers/normalizer.js';
 import { assemble } from './docsComposers/assembler.js';
 import { ExportManager } from './docsComposers/exportManager.js';
 import { LatexCreator } from './docsComposers/creators/latexCreator.js';
@@ -63,122 +64,150 @@ export default class DocumentExportPlugin extends Plugin {
     const notes: NormalizedNote[] = [];
     const saveFolder = normalizeVaultRelativePath(config.output.savePath, this.vaultBasePath);
 
-    const normalizeOpts = {
-      wikilinkMode: config.structure.wikilinkMode,
-      tagMode: config.structure.tagMode,
-      noteNameMode: config.structure.noteNameMode,
-    };
+    const progressModal = new ExportProgressModal(this.app);
+    progressModal.open();
 
-    if (config.source.mode === 'manifest') {
-      const file = vault.getAbstractFileByPath(config.source.indexNotePath);
-      if (!file || !(file instanceof TFile)) {
-        throw new Error(t('error-index-not-found') + ': ' + config.source.indexNotePath);
-      }
-      const content = await vault.read(file);
-      notes.push(normalizeNote(content, file.path, normalizeOpts));
-    } else {
-      for (const path of config.source.selectedNotes) {
-        const file = vault.getAbstractFileByPath(path);
-        if (!file || !(file instanceof TFile)) continue;
-        const content = await vault.read(file);
-        notes.push(normalizeNote(content, file.path, normalizeOpts));
-      }
-    }
+    try {
+      const normalizeOpts = {
+        wikilinkMode: config.structure.wikilinkMode,
+        tagMode: config.structure.tagMode,
+        noteNameMode: config.structure.noteNameMode,
+      };
 
-    if (notes.length === 0) {
-      throw new Error(t('error-no-notes'));
-    }
+      const rawContents = new Map<string, string>()
 
-    for (const note of notes) {
-      note.content = resolveImagePaths(note.content, note.path)
-    }
-
-    const noteMap = new Map<string, { content: string; path: string }>()
-    for (const note of notes) {
-      const basename = note.path.replace(/\\/g, '/').split('/').pop()?.replace(/\.md$/i, '')
-      if (basename) noteMap.set(basename, { content: note.content, path: note.path })
-      noteMap.set(note.title, { content: note.content, path: note.path })
-    }
-    for (const note of notes) {
-      note.content = resolveEmbeds(note.content, noteMap, config.structure.wikilinkMode, note.path)
-    }
-
-    const bookMd = assemble(notes, config);
-    const results = await this.exportManager.runPipeline(bookMd, config, this.assetResolver);
-
-    if (results.length === 0) {
-      throw new Error(t('error-no-formats'));
-    }
-
-    const writtenExtraPaths: string[] = []
-
-    for (const result of results) {
-      const savePath = joinVaultPath(saveFolder, result.fileName);
-
-      const existing = vault.getAbstractFileByPath(savePath);
-      if (existing && existing instanceof TFile) {
-        if (typeof result.data === 'string') {
-          await vault.modify(existing, result.data);
-        } else {
-          await vault.modifyBinary(existing, bufferToArrayBuffer(result.data));
+      if (config.source.mode === 'manifest') {
+        progressModal.setProgress(0, 100, t('progress-reading'));
+        const file = vault.getAbstractFileByPath(config.source.indexNotePath);
+        if (!file || !(file instanceof TFile)) {
+          throw new Error(t('error-index-not-found') + ': ' + config.source.indexNotePath);
         }
+        const rawContent = await vault.read(file);
+        rawContents.set(file.path, rawContent)
+        notes.push(normalizeNote(rawContent, file.path, normalizeOpts));
       } else {
-        const dir = savePath.substring(0, savePath.lastIndexOf('/'));
-        if (dir) {
-          const folder = vault.getAbstractFileByPath(dir);
-          if (!folder || !(folder instanceof TFolder)) {
-            await vault.createFolder(dir);
-          }
-        }
-        if (typeof result.data === 'string') {
-          await vault.create(savePath, result.data);
-        } else {
-          await vault.createBinary(savePath, bufferToArrayBuffer(result.data));
+        const total = config.source.selectedNotes.length;
+        for (let i = 0; i < total; i++) {
+          const path = config.source.selectedNotes[i]!;
+          progressModal.setProgress(i, total, t('progress-reading'));
+          const file = vault.getAbstractFileByPath(path);
+          if (!file || !(file instanceof TFile)) continue;
+          const rawContent = await vault.read(file);
+          rawContents.set(file.path, rawContent)
+          notes.push(normalizeNote(rawContent, file.path, normalizeOpts));
         }
       }
 
-      if (result.extraFiles) {
-        for (const extra of result.extraFiles) {
-          const extraPath = joinVaultPath(saveFolder, extra.name);
-          writtenExtraPaths.push(extraPath);
-          const extraExisting = vault.getAbstractFileByPath(extraPath);
-          if (extraExisting && extraExisting instanceof TFile) {
-            await vault.modifyBinary(extraExisting, extra.data);
+      if (notes.length === 0) {
+        throw new Error(t('error-no-notes'));
+      }
+
+      progressModal.setProgress(1, 6, t('progress-processing'));
+      for (const note of notes) {
+        note.content = resolveImagePaths(note.content, note.path)
+      }
+
+      const noteMap = new Map<string, NoteMapEntry>()
+      for (const note of notes) {
+        const basename = note.path.replace(/\\/g, '/').split('/').pop()?.replace(/\.md$/i, '')
+        const rawContent = rawContents.get(note.path) ?? note.content
+        const entry: NoteMapEntry = { content: note.content, rawContent, path: note.path }
+        if (basename) noteMap.set(basename, entry)
+        noteMap.set(note.path.replace(/\.md$/i, ''), entry)
+        noteMap.set(note.title, entry)
+      }
+
+      progressModal.setProgress(2, 6, t('progress-processing'));
+      await expandNoteMapWithEmbeds(noteMap, vault, normalizeOpts)
+
+      for (const note of notes) {
+        note.content = resolveEmbeds(note.content, noteMap, config.structure.wikilinkMode, note.path)
+      }
+
+      progressModal.setProgress(3, 6, t('progress-processing'));
+      const bookMd = assemble(notes, config);
+      const results = await this.exportManager.runPipeline(bookMd, config, this.assetResolver, (cur, total, msg) => progressModal.setProgress(3 + cur, 6 + total - 1, msg));
+
+      if (results.length === 0) {
+        throw new Error(t('error-no-formats'));
+      }
+
+      const writtenExtraPaths: string[] = []
+
+      progressModal.setProgress(6, 6, t('progress-saving'));
+
+      for (const result of results) {
+        const savePath = joinVaultPath(saveFolder, result.fileName);
+
+        const existing = vault.getAbstractFileByPath(savePath);
+        if (existing && existing instanceof TFile) {
+          if (typeof result.data === 'string') {
+            await vault.modify(existing, result.data);
           } else {
-            const extraDir = extraPath.substring(0, extraPath.lastIndexOf('/'));
-            if (extraDir) {
-              const extraFolder = vault.getAbstractFileByPath(extraDir);
-              if (!extraFolder || !(extraFolder instanceof TFolder)) {
-                await vault.createFolder(extraDir);
-              }
+            await vault.modifyBinary(existing, bufferToArrayBuffer(result.data));
+          }
+        } else {
+          const dir = savePath.substring(0, savePath.lastIndexOf('/'));
+          if (dir) {
+            const folder = vault.getAbstractFileByPath(dir);
+            if (!folder || !(folder instanceof TFolder)) {
+              await vault.createFolder(dir);
             }
-            await vault.createBinary(extraPath, extra.data);
+          }
+          if (typeof result.data === 'string') {
+            await vault.create(savePath, result.data);
+          } else {
+            await vault.createBinary(savePath, bufferToArrayBuffer(result.data));
+          }
+        }
+
+        if (result.extraFiles) {
+          for (const extra of result.extraFiles) {
+            const extraPath = joinVaultPath(saveFolder, extra.name);
+            writtenExtraPaths.push(extraPath);
+            const extraExisting = vault.getAbstractFileByPath(extraPath);
+            if (extraExisting && extraExisting instanceof TFile) {
+              await vault.modifyBinary(extraExisting, extra.data);
+            } else {
+              const extraDir = extraPath.substring(0, extraPath.lastIndexOf('/'));
+              if (extraDir) {
+                const extraFolder = vault.getAbstractFileByPath(extraDir);
+                if (!extraFolder || !(extraFolder instanceof TFolder)) {
+                  await vault.createFolder(extraDir);
+                }
+              }
+              await vault.createBinary(extraPath, extra.data);
+            }
           }
         }
       }
-    }
 
-    // Cleanup: remove temporary image files from the export folder
-    for (const extraPath of writtenExtraPaths) {
-      const fileName = extraPath.split('/').pop() ?? '';
-      const isMermaid = fileName.startsWith('virtual_mermaid');
-      const isFormula = fileName.startsWith('virtual_formula');
-      const isPhoto = !isMermaid && !isFormula;
+      // Cleanup: remove temporary image files from the export folder
+      // Keep them for LaTeX since it references the actual files
+      for (const extraPath of writtenExtraPaths) {
+        const fileName = extraPath.split('/').pop() ?? '';
+        const isMermaid = fileName.startsWith('virtual_mermaid');
+        const isFormula = fileName.startsWith('virtual_formula');
 
-      if (isMermaid || isFormula) {
-        const file = vault.getAbstractFileByPath(extraPath);
-        if (file && file instanceof TFile) {
-          await this.app.fileManager.trashFile(file);
-        }
-      } else if (isPhoto && !config.output.formats.latex) {
-        const file = vault.getAbstractFileByPath(extraPath);
-        if (file && file instanceof TFile) {
-          await this.app.fileManager.trashFile(file);
+        if ((isMermaid || isFormula) && !config.output.formats.latex) {
+          const file = vault.getAbstractFileByPath(extraPath);
+          if (file && file instanceof TFile) {
+            await this.app.fileManager.trashFile(file);
+          }
+        } else if (!isMermaid && !isFormula && !config.output.formats.latex) {
+          const file = vault.getAbstractFileByPath(extraPath);
+          if (file && file instanceof TFile) {
+            await this.app.fileManager.trashFile(file);
+          }
         }
       }
-    }
 
-    new Notice(t('notice-export-complete') + ': ' + results.map(r => r.fileName).join(', '));
+      progressModal.close();
+      new Notice(t('notice-export-complete') + ': ' + results.map(r => r.fileName).join(', '));
+    } catch (err) {
+      progressModal.close();
+      throw err;
+    }
   }
 
   async loadSettings() {
@@ -236,6 +265,69 @@ export default class DocumentExportPlugin extends Plugin {
 
   async saveSettings() {
     await this.saveData(this.settings);
+  }
+}
+
+async function expandNoteMapWithEmbeds(
+  noteMap: Map<string, NoteMapEntry>,
+  vault: Vault,
+  normalizeOpts: { wikilinkMode: string; tagMode: string; noteNameMode: string },
+): Promise<void> {
+  const embedRe = /!\[\[([^|[\]]+)(?:\|([^[\]]+))?\]\]/g
+  const allFiles = vault.getMarkdownFiles()
+  const fileLookup = new Map<string, TFile>()
+  const titleLookup = new Map<string, TFile>()
+  
+  for (const f of allFiles) {
+    const basename = f.name.replace(/\.md$/i, '')
+    fileLookup.set(basename, f)
+    fileLookup.set(f.path, f)
+    fileLookup.set(f.path.replace(/\.md$/i, ''), f)
+    
+    // Also build title lookup for notes with titles
+    const rawContent = await vault.read(f)
+    const { frontmatter } = parseFrontmatter(rawContent)
+    const title = resolveTitle(frontmatter, f.path)
+    if (title && title !== basename) {
+      titleLookup.set(title, f)
+    }
+  }
+
+  let foundNew = true
+  while (foundNew) {
+    foundNew = false
+    const toAdd = new Map<string, TFile>()
+
+    for (const entry of [...noteMap.values()]) {
+      embedRe.lastIndex = 0
+      let match
+      while ((match = embedRe.exec(entry.content)) !== null) {
+        const target = match[1]!.trim()
+        const hashIdx = target.indexOf('#')
+        const baseName = hashIdx >= 0 ? target.slice(0, hashIdx) : target
+
+        if (!noteMap.has(baseName) && !toAdd.has(baseName)) {
+          let file = fileLookup.get(baseName)
+          if (!file) {
+            file = titleLookup.get(baseName)
+          }
+          if (file) toAdd.set(baseName, file)
+        }
+      }
+    }
+
+    for (const [, file] of toAdd) {
+      const rawContent = await vault.read(file)
+      const normalized = normalizeNote(rawContent, file.path, normalizeOpts)
+      normalized.content = resolveImagePaths(normalized.content, file.path)
+      const entry: NoteMapEntry = { content: normalized.content, rawContent, path: file.path }
+      const basename = file.name.replace(/\.md$/i, '')
+      const pathWithoutExt = file.path.replace(/\.md$/i, '')
+      noteMap.set(basename, entry)
+      noteMap.set(pathWithoutExt, entry)
+      noteMap.set(normalized.title, entry)
+      foundNew = true
+    }
   }
 }
 

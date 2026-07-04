@@ -26,7 +26,7 @@ const defaultConfig: ExportConfig = {
     enableCoverPage: true,
     useBookMetadata: true,
     coverImagePath: '',
-    toc: { enabled: false, depth: 0, title: 'Índice' },
+    toc: { enabled: false, depth: 0 },
   },
   output: {
     formats: { pdf: true, docx: false, latex: false },
@@ -107,14 +107,14 @@ describe('LatexCreator', () => {
 
     it('includes \\tableofcontents when toc is enabled', async () => {
       const result = await createLatex('', {
-        frontMatter: { ...defaultConfig.frontMatter, toc: { enabled: true, depth: 2, title: 'Índice' } },
+        frontMatter: { ...defaultConfig.frontMatter, toc: { enabled: true, depth: 2 } },
       })
       expect(result).toContain('\\tableofcontents')
     })
 
     it('omits \\tableofcontents when toc disabled', async () => {
       const result = await createLatex('', {
-        frontMatter: { ...defaultConfig.frontMatter, toc: { enabled: false, depth: 0, title: '' } },
+        frontMatter: { ...defaultConfig.frontMatter, toc: { enabled: false, depth: 0 } },
       })
       expect(result).not.toContain('\\tableofcontents')
     })

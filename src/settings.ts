@@ -37,7 +37,6 @@ export const DEFAULT_SETTINGS: DocumentExportSettings = {
 		toc: {
 			enabled: true,
 			depth: 2,
-			title: 'Contents',
 		},
 	},
 	output: {
@@ -307,16 +306,6 @@ export class DocumentExportSettingTab extends PluginSettingTab {
 				});
 			});
 
-		new Setting(section)
-			.setName(t('settings-toc-title'))
-			.addText((text) =>
-				text
-					.setValue(settings.frontMatter.toc.title)
-					.onChange((value) => {
-						settings.frontMatter.toc.title = value;
-						void this.plugin.saveSettings();
-					}),
-			);
 	}
 
 	private buildOutputSection(containerEl: HTMLElement, settings: DocumentExportSettings) {

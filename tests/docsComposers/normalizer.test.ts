@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { normalizeNote, resolveEmbeds } from '../../src/docsComposers/normalizer.js'
+import { type NoteMapEntry } from '../../src/types.js'
 
 describe('normalizeNote', () => {
   it('returns title from frontmatter when present', () => {
@@ -201,7 +202,7 @@ describe('wikilinks', () => {
 })
 
 describe('image embeds', () => {
-  const emptyMap = new Map<string, { content: string; path: string }>()
+  const emptyMap = new Map<string, NoteMapEntry>()
 
   it('converts ![[img.png]] to markdown image', () => {
     const result = resolveEmbeds('![[photo.png]]', emptyMap, 'resolve')
@@ -234,25 +235,31 @@ describe('image embeds', () => {
   })
 
   it('embeds note content when target is a note', () => {
-    const noteMap = new Map([['other', { content: 'Content of other note', path: 'other.md' }]])
+    const noteMap = new Map<string, NoteMapEntry>([['other', { content: 'Content of other note', rawContent: 'Content of other note', path: 'other.md' }]])
     const result = resolveEmbeds('![[other]]', noteMap, 'resolve')
     expect(result).toBe('Content of other note')
   })
 
   it('resolves image embeds inside transcluded note', () => {
-    const noteMap = new Map([['other', { content: '![[photo.png]]', path: 'subfolder/other.md' }]])
+    const noteMap = new Map<string, NoteMapEntry>([['other', { content: '![[photo.png]]', rawContent: '![[photo.png]]', path: 'subfolder/other.md' }]])
     const result = resolveEmbeds('![[other]]', noteMap, 'resolve', 'parent/note.md')
     expect(result).toBe('![photo.png](subfolder/photo.png)')
   })
 
   it('resolves nested embeds recursively', () => {
-    const noteMap = new Map([['a', { content: '![[b]]', path: 'a.md' }], ['b', { content: 'B content', path: 'b.md' }]])
+    const noteMap = new Map<string, NoteMapEntry>([
+      ['a', { content: '![[b]]', rawContent: '![[b]]', path: 'a.md' }],
+      ['b', { content: 'B content', rawContent: 'B content', path: 'b.md' }],
+    ])
     const result = resolveEmbeds('![[a]]', noteMap, 'resolve')
     expect(result).toBe('B content')
   })
 
   it('prevents infinite loops on circular embeds', () => {
-    const noteMap = new Map([['a', { content: '![[b]]', path: 'a.md' }], ['b', { content: '![[a]]', path: 'b.md' }]])
+    const noteMap = new Map<string, NoteMapEntry>([
+      ['a', { content: '![[b]]', rawContent: '![[b]]', path: 'a.md' }],
+      ['b', { content: '![[a]]', rawContent: '![[a]]', path: 'b.md' }],
+    ])
     const result = resolveEmbeds('![[a]]', noteMap, 'resolve')
     expect(result).toBe('')
   })
@@ -265,6 +272,71 @@ describe('image embeds', () => {
   it('strips embeds in strip mode', () => {
     const result = resolveEmbeds('![[photo.png]]', emptyMap, 'strip')
     expect(result).toBe('')
+  })
+
+  it('embeds heading section with ![[nota#heading]]', () => {
+    const noteMap = new Map<string, NoteMapEntry>([['nota', {
+      content: '# Intro\n\nWelcome.\n\n## Resumen\n\nKey points here.\n\n## Details\n\nMore info.',
+      rawContent: '# Intro\n\nWelcome.\n\n## Resumen\n\nKey points here.\n\n## Details\n\nMore info.',
+      path: 'nota.md',
+    }]])
+    const result = resolveEmbeds('![[nota#Resumen]]', noteMap, 'resolve')
+    expect(result).toBe('## Resumen\n\nKey points here.')
+  })
+
+  it('embeds block reference with ![[nota#^bloque2]]', () => {
+    const noteMap = new Map<string, NoteMapEntry>([['nota', {
+      content: 'Some text.\n\nKey line ^bloque2\n\nMore text.',
+      rawContent: 'Some text.\n\nKey line ^bloque2\n\nMore text.',
+      path: 'nota.md',
+    }]])
+    const result = resolveEmbeds('![[nota#^bloque2]]', noteMap, 'resolve')
+    expect(result).toBe('Key line')
+  })
+
+  it('returns original embed when heading not found', () => {
+    const noteMap = new Map<string, NoteMapEntry>([['nota', {
+      content: '# Only heading',
+      rawContent: '# Only heading',
+      path: 'nota.md',
+    }]])
+    const result = resolveEmbeds('![[nota#Missing]]', noteMap, 'resolve')
+    expect(result).toBe('![[nota#Missing]]')
+  })
+
+  it('returns original embed when block id not found', () => {
+    const noteMap = new Map<string, NoteMapEntry>([['nota', {
+      content: 'Some content',
+      rawContent: 'Some content',
+      path: 'nota.md',
+    }]])
+    const result = resolveEmbeds('![[nota#^missing]]', noteMap, 'resolve')
+    expect(result).toBe('![[nota#^missing]]')
+  })
+
+  it('keeps pdf embed as ![[path.pdf]] with resolved path', () => {
+    const result = resolveEmbeds('![[doc.pdf]]', new Map(), 'resolve', 'subfolder/note.md')
+    expect(result).toBe('![[subfolder/doc.pdf]]')
+  })
+
+  it('keeps pdf embed without notePath', () => {
+    const result = resolveEmbeds('![[doc.pdf]]', new Map(), 'resolve')
+    expect(result).toBe('![[doc.pdf]]')
+  })
+
+  it('keeps pdf embed in strip mode still strips it', () => {
+    const result = resolveEmbeds('![[doc.pdf]]', new Map(), 'strip')
+    expect(result).toBe('')
+  })
+
+  it('keeps pdf embed in raw mode leaves as-is', () => {
+    const result = resolveEmbeds('![[doc.pdf]]', new Map(), 'raw')
+    expect(result).toBe('![[doc.pdf]]')
+  })
+
+  it('non-pdf non-image files still become markdown links', () => {
+    const result = resolveEmbeds('![[song.mp3]]', new Map(), 'resolve')
+    expect(result).toBe('[song.mp3](song.mp3)')
   })
 })
 

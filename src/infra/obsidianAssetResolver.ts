@@ -12,7 +12,7 @@ function isDataUri(path: string): boolean {
 const REMOTE_READ_TIMEOUT_MS = 10000
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
-  // eslint-disable-next-line obsidianmd/prefer-window-timers
+   
   let timeoutId: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<T>((_, reject) => {
     // eslint-disable-next-line obsidianmd/prefer-window-timers

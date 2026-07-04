@@ -40,7 +40,7 @@ export class ExportVaultModal extends Modal {
 	public useBookMetadata = true;
 	public enableToc = true;
 	public tocDepth = 2;
-	public tocTitle = 'Contents';
+
 	public formats = { pdf: true, docx: false, latex: false };
 	public font: FontFamily = 'times-new-roman';
 	public baseFontSize = 11;
@@ -66,7 +66,6 @@ export class ExportVaultModal extends Modal {
 		this.useBookMetadata = settings.frontMatter.useBookMetadata;
 		this.enableToc = settings.frontMatter.toc.enabled;
 		this.tocDepth = settings.frontMatter.toc.depth;
-		this.tocTitle = settings.frontMatter.toc.title;
 		this.formats = { ...settings.output.formats };
 		this.savePath = settings.output.savePath;
 		this.font = settings.formatting.font;
@@ -220,7 +219,6 @@ export class ExportVaultModal extends Modal {
 				toc: {
 					enabled: this.enableToc,
 					depth: this.tocDepth,
-					title: this.tocTitle,
 				},
 			},
 			output: {

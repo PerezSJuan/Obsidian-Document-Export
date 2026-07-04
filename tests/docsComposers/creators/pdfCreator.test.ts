@@ -26,7 +26,7 @@ const defaultConfig: ExportConfig = {
     enableCoverPage: false,
     useBookMetadata: false,
     coverImagePath: '',
-    toc: { enabled: false, depth: 0, title: '' },
+    toc: { enabled: false, depth: 0 },
   },
   output: {
     formats: { pdf: true, docx: false, latex: false },

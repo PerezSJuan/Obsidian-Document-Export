@@ -1,5 +1,6 @@
 import { marked } from 'marked'
 import type { Token, Tokens } from 'marked'
+import { t } from '../../i18n.js'
 import {
   Document,
   Packer,
@@ -19,6 +20,7 @@ import {
   LeaderType,
   BorderStyle,
   ExternalHyperlink,
+  FootnoteReferenceRun,
 } from 'docx'
 import type { ISectionOptions, ParagraphChild } from 'docx'
 import type { ExportConfig, FontFamily } from '../../types.js'
@@ -45,6 +47,11 @@ const HEADING_TO_DOCX: Record<number, string> = {
   6: HeadingLevel.HEADING_6,
 }
 
+interface DocxFootnoteCtx {
+  footnotes: Map<string, { id: number; text: string }>
+  footnoteCounter: number
+}
+
 const FONT_MAP: Record<FontFamily, string> = {
   'times-new-roman': 'Times New Roman',
   arial: 'Arial',
@@ -66,6 +73,7 @@ export class DocxCreator implements Creator {
   private fontName: string = 'Times New Roman'
   private baseFontSize: number = 22
   private imageCache = new Map<string, Buffer>()
+  private footnoteCtx: DocxFootnoteCtx = { footnotes: new Map(), footnoteCounter: 0 }
 
   async render(
     markdown: string,
@@ -75,6 +83,7 @@ export class DocxCreator implements Creator {
     this.fontName = FONT_MAP[config.formatting.font] ?? 'Times New Roman'
     this.baseFontSize = config.formatting.baseFontSize * 2
     this.imageCache.clear()
+    this.footnoteCtx = { footnotes: new Map(), footnoteCounter: 0 }
 
     const tokens = marked.lexer(markdown)
 
@@ -98,7 +107,7 @@ export class DocxCreator implements Creator {
         children: [
           new Paragraph({
             children: [new TextRun({
-              text: config.frontMatter.toc.title || 'Table of Contents',
+              text: t('toc-default-title'),
               bold: true,
               size: 28,
               font: this.fontName,
@@ -150,6 +159,25 @@ export class DocxCreator implements Creator {
       description: config.source.metadata.subtitle || undefined,
       creator: config.source.metadata.author || undefined,
       sections,
+      footnotes: Object.fromEntries(
+        [...this.footnoteCtx.footnotes.entries()].map(([key, val]) => [
+          String(val.id),
+          {
+            children: [
+              new Paragraph({
+                children: [new TextRun({
+                  text: val.text,
+                  font: this.fontName,
+                  size: Math.round(this.baseFontSize * 0.8),
+                  italics: true,
+                  color: '666666',
+                })],
+                spacing: { before: 60, after: 60 },
+              }),
+            ],
+          },
+        ])
+      ),
       styles: {
         default: {
           heading1: {
@@ -177,7 +205,7 @@ export class DocxCreator implements Creator {
             paragraph: { spacing: { before: 160, after: 60 } },
           },
           hyperlink: {
-            run: { color: '0563C1', underline: { type: 'single', color: '0563C1' } },
+            run: { color: '003366', underline: { type: 'single', color: '003366' } },
           },
         },
       },
@@ -660,7 +688,7 @@ export class DocxCreator implements Creator {
 
   private inlineToRuns(tokens: Token[], config: ExportConfig, size?: number, italic?: boolean, bold?: boolean): ParagraphChild[] {
     const runs: ParagraphChild[] = []
-    const state = { bold: bold ?? false, italic: italic ?? false, strikethrough: false, highlight: false, sub: false, sup: false, hyperlink: false, size: size ?? this.baseFontSize }
+    const state = { bold: bold ?? false, italic: italic ?? false, strikethrough: false, highlight: false, sub: false, sup: false, hyperlink: false, size: size ?? this.baseFontSize, insideFootnote: false }
     for (const token of tokens) {
       this.inlineTokenToRuns(token, runs, config, state)
     }
@@ -671,8 +699,11 @@ export class DocxCreator implements Creator {
     token: Token,
     runs: ParagraphChild[],
     _config: ExportConfig,
-    state: { bold: boolean; italic: boolean; strikethrough: boolean; highlight: boolean; sub: boolean; sup: boolean; hyperlink: boolean; size: number },
+    state: { bold: boolean; italic: boolean; strikethrough: boolean; highlight: boolean; sub: boolean; sup: boolean; hyperlink: boolean; size: number; insideFootnote: boolean },
   ): void {
+    if (state.insideFootnote && token.type === 'text') {
+      return
+    }
     switch (token.type) {
       case 'text': {
         runs.push(new TextRun({
@@ -718,6 +749,28 @@ export class DocxCreator implements Creator {
         else if (htmlText === '</sub>') { state.sub = false }
         else if (htmlText === '<sup>') { state.sup = true }
         else if (htmlText === '</sup>') { state.sup = false }
+        else if (htmlText.startsWith('<footnote ')) {
+          const idMatch = htmlText.match(/id="([^"]+)"/)
+          if (idMatch?.[1]) {
+            const blockId = idMatch[1]
+            if (!this.footnoteCtx.footnotes.has(blockId)) {
+              this.footnoteCtx.footnoteCounter++
+              this.footnoteCtx.footnotes.set(blockId, {
+                id: this.footnoteCtx.footnoteCounter,
+                text: t('footnote-see-this-page'),
+              })
+            }
+            const fn = this.footnoteCtx.footnotes.get(blockId)!
+            runs.push(new FootnoteReferenceRun(fn.id))
+            state.insideFootnote = true
+          }
+        }
+        else if (htmlText === '</footnote>') {
+          state.insideFootnote = false
+        }
+        else if (htmlText.startsWith('<blocklabel') || htmlText === '</blocklabel>') {
+          // no-op
+        }
         else {
           runs.push(new TextRun({ text: htmlText, font: this.fontName, size: state.size, style: state.hyperlink ? 'Hyperlink' : undefined }))
         }

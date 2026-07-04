@@ -32,7 +32,7 @@ function toBase64(str: string): string {
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
-  // eslint-disable-next-line obsidianmd/prefer-window-timers
+   
   let timeoutId: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<T>((_, reject) => {
     // eslint-disable-next-line obsidianmd/prefer-window-timers
@@ -49,7 +49,7 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: s
 function loadImage(src: string, timeoutMs: number): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
-    // eslint-disable-next-line obsidianmd/prefer-window-timers
+     
     let timeoutId: ReturnType<typeof setTimeout> | undefined
     // eslint-disable-next-line obsidianmd/prefer-window-timers
     timeoutId = setTimeout(() => {
@@ -77,7 +77,7 @@ function loadImage(src: string, timeoutMs: number): Promise<HTMLImageElement> {
 
 function canvasToBlob(canvas: HTMLCanvasElement, timeoutMs: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    // eslint-disable-next-line obsidianmd/prefer-window-timers
+     
     let timeoutId: ReturnType<typeof setTimeout> | undefined
     // eslint-disable-next-line obsidianmd/prefer-window-timers
     timeoutId = setTimeout(() => {

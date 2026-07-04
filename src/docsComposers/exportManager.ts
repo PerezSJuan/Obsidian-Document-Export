@@ -1,9 +1,11 @@
-import type { ExportConfig } from '../types.js'
+import type { ExportConfig, ProgressCallback } from '../types.js'
 import type { AssetResolver } from './creators/assetResolver.js'
 import type { Creator } from './creators/creator.js'
 import { convertTags } from './normalizer.js'
 import { renderMermaidToPNG } from '../utils/mermaidRenderer.js'
 import { renderFormulasInMarkdown } from '../utils/formulaRenderer.js'
+import { renderPdfEmbeds } from './pdfEmbedRenderer.js'
+import { t } from '../i18n.js'
 
 export interface ExportResult {
   format: string
@@ -45,21 +47,30 @@ export class ExportManager {
     bookMd: string,
     config: ExportConfig,
     assets: AssetResolver,
+    onProgress?: ProgressCallback,
   ): Promise<ExportResult[]> {
     const results: ExportResult[] = []
     const formats = config.output.formats
     let bodyMd = bookMd.replace(/^---\n[\s\S]*?\n---\n*/, '')
 
+    onProgress?.(1, 5, t('progress-mermaid'))
     bodyMd = await this.processMermaidBlocks(bodyMd, assets)
 
+    onProgress?.(2, 5, t('progress-formulas'))
+    const bodyMdForLatex = bodyMd
     bodyMd = await renderFormulasInMarkdown(bodyMd, assets)
+
+    onProgress?.(3, 5, t('progress-pdf-embeds'))
+    bodyMd = await renderPdfEmbeds(bodyMd, assets)
 
     bodyMd = convertTags(bodyMd, config.structure.tagMode)
 
+    onProgress?.(4, 5, t('progress-generating'))
     if (formats.latex) {
       const creator = this.creators.get('latex')
       if (creator) {
-        const result = await creator.render(bodyMd, config, assets)
+        const bodyForLatex = convertTags(bodyMdForLatex, config.structure.tagMode)
+        const result = await creator.render(bodyForLatex, config, assets)
         results.push({ format: 'latex', fileName: result.fileName, data: result.data, extraFiles: result.extraFiles })
       }
     }
@@ -79,6 +90,8 @@ export class ExportManager {
         results.push({ format: 'docx', fileName: result.fileName, data: result.data, extraFiles: result.extraFiles })
       }
     }
+
+    onProgress?.(5, 5, t('progress-saving'))
 
     return results
   }

@@ -37,7 +37,7 @@ const defaultConfig: ExportConfig = {
     enableCoverPage: false,
     useBookMetadata: false,
     coverImagePath: '',
-    toc: { enabled: false, depth: 0, title: '' },
+          toc: { enabled: false, depth: 0 },
   },
   output: {
     formats: { pdf: true, docx: false, latex: false },
@@ -351,7 +351,7 @@ describe('DocxCreator', () => {
       const buf = await createDocx(md, {
         frontMatter: {
           ...defaultConfig.frontMatter,
-          toc: { enabled: true, depth: 3, title: 'Contents' },
+          toc: { enabled: true, depth: 3 },
         },
       })
       const xml = await extractDocxXml(buf)
@@ -370,13 +370,13 @@ describe('DocxCreator', () => {
       const bufDepth1 = await createDocx(md, {
         frontMatter: {
           ...defaultConfig.frontMatter,
-          toc: { enabled: true, depth: 1, title: 'Contents' },
+          toc: { enabled: true, depth: 1 },
         },
       })
       const bufDepth3 = await createDocx(md, {
         frontMatter: {
           ...defaultConfig.frontMatter,
-          toc: { enabled: true, depth: 3, title: 'Contents' },
+          toc: { enabled: true, depth: 3 },
         },
       })
       const xml = await extractDocxXml(bufDepth1)
@@ -393,7 +393,7 @@ describe('DocxCreator', () => {
       const buf = await createDocx(md, {
         frontMatter: {
           ...defaultConfig.frontMatter,
-          toc: { enabled: false, depth: 0, title: '' },
+    toc: { enabled: false, depth: 0 },
         },
       })
       const xml = await extractDocxXml(buf)
@@ -406,13 +406,13 @@ describe('DocxCreator', () => {
       const shortBuf = await createDocx(shortMd, {
         frontMatter: {
           ...defaultConfig.frontMatter,
-          toc: { enabled: true, depth: 4, title: 'Contents' },
+          toc: { enabled: true, depth: 4 },
         },
       })
       const longBuf = await createDocx(longMd, {
         frontMatter: {
           ...defaultConfig.frontMatter,
-          toc: { enabled: true, depth: 4, title: 'Contents' },
+          toc: { enabled: true, depth: 4 },
         },
       })
       expect(longBuf.length).toBeGreaterThan(shortBuf.length)

@@ -1,4 +1,4 @@
-import { type NormalizedNote } from '../types.js'
+import { type NormalizedNote, type NoteMapEntry } from '../types.js'
 
 export interface NormalizeOptions {
   wikilinkMode: string
@@ -7,11 +7,6 @@ export interface NormalizeOptions {
 }
 
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|bmp|svg|webp)$/i
-
-export interface NoteMapEntry {
-  content: string
-  path: string
-}
 
 export function resolveEmbeds(
   content: string,
@@ -45,25 +40,99 @@ export function resolveEmbeds(
         return `![${altText}](${href.replace(/ /g, '%20')})`
       }
 
+      if (/\.pdf$/i.test(cleanTarget)) {
+        let href = cleanTarget
+        if (notePath) {
+          const noteDir = notePath.includes('/') ? notePath.slice(0, notePath.lastIndexOf('/')) : ''
+          if (noteDir) {
+            href = resolveRelativePath(href, noteDir)
+          }
+        }
+        return `![[${href}]]`
+      }
+
       if (NON_IMAGE_EXT_RE.test(cleanTarget)) {
         return `[${altText}](${cleanTarget.replace(/ /g, '%20')})`
       }
 
       const hashIdx = cleanTarget.indexOf('#')
       const baseName = hashIdx >= 0 ? cleanTarget.slice(0, hashIdx) : cleanTarget
+      const fragment = hashIdx >= 0 ? cleanTarget.slice(hashIdx + 1) : ''
       const entry = noteMap.get(baseName) ?? noteMap.get(cleanTarget)
       if (entry) {
         if (seen?.has(baseName)) return ''
         const nextSeen = new Set(seen)
         nextSeen.add(baseName)
+
+        if (fragment) {
+          if (fragment.startsWith('^')) {
+            const blockId = fragment.slice(1)
+            const blockContent = extractBlockContent(entry.rawContent, blockId)
+            if (blockContent) {
+              return `<footnote id="${blockId}">${blockContent}</footnote>`
+            }
+            return match
+          }
+          const sectionContent = extractHeadingSection(entry.content, fragment)
+          return sectionContent || match
+        }
+
         return resolveEmbeds(entry.content, noteMap, wikilinkMode, entry.path, nextSeen)
       }
 
-      return match
+      // Note not in export - remove the embed entirely
+      return ''
     },
   )
 
   return restoreCodeBlocks(resolved, blocks)
+}
+
+function extractHeadingSection(content: string, headingName: string): string {
+  const lines = content.split('\n')
+  let startIdx = -1
+  let headingLevel = 0
+
+  const targetLower = headingName.toLowerCase()
+
+  const headingsFound: string[] = []
+  for (let i = 0; i < lines.length; i++) {
+    const headingMatch = lines[i]!.match(/^(#{1,6})\s+(.+)/)
+    if (headingMatch) {
+      const rawText = headingMatch[2]!.trim()
+      const text = rawText
+        .replace(/\s*\{:[^}]+\}\s*$/, '')
+        .replace(/\s*<!--[\s\S]*?-->\s*$/, '')
+      headingsFound.push(`[${headingMatch[1]!.length}] "${rawText}" → "${text}"`)
+      if (text.toLowerCase() === targetLower) {
+        startIdx = i
+        headingLevel = headingMatch[1]!.length
+        break
+      }
+    }
+  }
+
+  if (startIdx === -1) return ''
+
+  for (let i = startIdx + 1; i < lines.length; i++) {
+    const headingMatch = lines[i]!.match(/^(#{1,6})\s+/)
+    if (headingMatch && headingMatch[1]!.length <= headingLevel) {
+      return lines.slice(startIdx, i).join('\n').trimEnd()
+    }
+  }
+
+  return lines.slice(startIdx).join('\n').trimEnd()
+}
+
+function extractBlockContent(rawContent: string, blockId: string): string {
+  const lines = rawContent.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i]!.match(/^(.*?)\s+\^([\w-]+)\s*$/)
+    if (match && match[2] === blockId) {
+      return match[1]!
+    }
+  }
+  return ''
 }
 
 export function normalizeNote(
@@ -130,7 +199,7 @@ function restoreCodeBlocks(content: string, blocks: ProtectedBlock[]): string {
   )
 }
 
-function parseFrontmatter(
+export function parseFrontmatter(
   raw: string,
 ): { frontmatter: Record<string, unknown>; body: string } {
   if (!raw.startsWith('---')) {
@@ -180,7 +249,7 @@ function parseYaml(yaml: string): Record<string, unknown> {
   return result
 }
 
-function resolveTitle(
+export function resolveTitle(
   frontmatter: Record<string, unknown>,
   path: string,
 ): string {
@@ -250,7 +319,7 @@ function convertBlockRefs(content: string): string {
     const anchorMatch = line.match(/^(.*?)\s+\^([\w-]+)\s*$/)
     if (anchorMatch) {
       blockMap.set(anchorMatch[2]!, anchorMatch[1]!)
-      result.push(anchorMatch[1]!)
+      result.push(`<blocklabel id="${anchorMatch[2]!}"></blocklabel>${anchorMatch[1]!}`)
     } else {
       const standaloneMatch = line.match(/^\s*\^([\w-]+)\s*$/)
       if (standaloneMatch) {
@@ -264,9 +333,13 @@ function convertBlockRefs(content: string): string {
   content = result.join('\n')
 
   content = content.replace(
-    /\[\[#\^([\w-]+)(?:\|([^\[\]]+))?\]\]/g,
-    (_match, id, display) => {
-      return blockMap.get(id) ?? (display ?? `#^${id}`)
+    /\[\[#\^([\w-]+)(?:\|([^[\]]+))?\]\]/g,
+    (_match: string, id: string, display?: string): string => {
+      const block = blockMap.get(id)
+      if (block !== undefined) {
+        return `<footnote id="${id}">${block}</footnote>`
+      }
+      return display ?? `#^${id}`
     },
   )
 
@@ -295,6 +368,18 @@ export function convertTags(content: string, mode = 'text'): string {
   let counter = 0
   content = content.replace(/\[[^\]]*\]\([^)]*\)/g, (match) => {
     const ph = `\x00LINK${counter}\x00`
+    links.push({ placeholder: ph, original: match })
+    counter++
+    return ph
+  })
+  content = content.replace(/!\[\[[^\]]+\]\]/g, (match) => {
+    const ph = `\x00EMBED${counter}\x00`
+    links.push({ placeholder: ph, original: match })
+    counter++
+    return ph
+  })
+  content = content.replace(/\[\[[^\]]+\]\]/g, (match) => {
+    const ph = `\x00WIKI${counter}\x00`
     links.push({ placeholder: ph, original: match })
     counter++
     return ph

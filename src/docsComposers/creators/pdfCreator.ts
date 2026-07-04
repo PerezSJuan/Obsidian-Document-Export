@@ -6,6 +6,7 @@ import type { Creator, RenderResult } from './creator.js'
 import type { AssetResolver } from './assetResolver.js'
 import { sanitizeFilename } from './creator.js'
 import { highlightCode } from '../../utils/syntaxHighlight.js'
+import { t } from '../../i18n.js'
 
 interface InlinePieceText {
   type: 'text'
@@ -13,6 +14,7 @@ interface InlinePieceText {
   bold?: boolean
   italic?: boolean
   mono?: boolean
+  color?: PdfColor
 }
 
 interface InlinePieceImage {
@@ -25,7 +27,25 @@ interface InlinePieceBreak {
   type: 'break'
 }
 
-type InlinePiece = InlinePieceText | InlinePieceImage | InlinePieceBreak
+interface PdfFootnoteCtx {
+  footnotes: Map<string, { id: number; text: string }>
+  footnoteCounter: number
+  idToBlock: Map<number, string>
+  blockLabelPages: Map<string, number>
+  pageFootnotes: Map<number, Array<{ footnoteId: number; refPdfPage: number }>>
+}
+
+interface InlinePieceFootnote {
+  type: 'footnote'
+  footnoteId: number
+}
+
+interface InlinePieceBlocklabel {
+  type: 'blocklabel'
+  blockId: string
+}
+
+type InlinePiece = InlinePieceText | InlinePieceImage | InlinePieceBreak | InlinePieceFootnote | InlinePieceBlocklabel
 
 interface TocEntry {
   text: string
@@ -148,6 +168,7 @@ const TABLE_LINE_COLOR = rgb(0.8, 0.8, 0.8)
 const TABLE_HEADER_COLOR = rgb(0.88, 0.88, 0.88)
 const HR_COLOR = rgb(0.6, 0.6, 0.6)
 const CODE_BG_COLOR = rgb(0.96, 0.96, 0.96)
+const LINK_COLOR = rgb(0, 0.2, 0.4)
 type PdfColor = typeof TEXT_COLOR
 
 function hasTokens(value: unknown): value is { tokens: Token[] } {
@@ -157,6 +178,7 @@ function hasTokens(value: unknown): value is { tokens: Token[] } {
 export class PdfCreator implements Creator {
   private currentFontFamily: FontFamily = 'times-new-roman'
   private headingSizes: Record<number, number> = scaleHeadings(11)
+  private footnoteCtx: PdfFootnoteCtx = { footnotes: new Map(), footnoteCounter: 0, idToBlock: new Map(), blockLabelPages: new Map(), pageFootnotes: new Map() }
 
   async render(
     markdown: string,
@@ -171,6 +193,7 @@ export class PdfCreator implements Creator {
 
     this.currentFontFamily = config.formatting.font
     this.headingSizes = scaleHeadings(config.formatting.baseFontSize)
+    this.footnoteCtx = { footnotes: new Map(), footnoteCounter: 0, idToBlock: new Map(), blockLabelPages: new Map(), pageFootnotes: new Map() }
 
     await this.collectImages(tokens, assets, imageBytes)
 
@@ -216,6 +239,8 @@ export class PdfCreator implements Creator {
     if (config.formatting.pageNumbers.enabled) {
       this.drawPageNumbers(ctx, config)
     }
+
+    this.drawFootnoteAreas(ctx)
 
     const bytes = await pdfDoc.save({ useObjectStreams: false })
     return { data: Buffer.concat([Buffer.from(bytes), Buffer.from('\n')]), fileName: sanitizeFilename(config.source.metadata.title, '.pdf') }
@@ -344,7 +369,7 @@ export class PdfCreator implements Creator {
 
   private renderTocTitle(ctx: RenderContext, config: ExportConfig, page: PDFPage): void {
     const fontBold = this.resolveFont(ctx, true, false, false)
-    const title = config.frontMatter.toc.title || 'Table of Contents'
+    const title = t('toc-default-title')
     const size = 20
     const width = fontBold.widthOfTextAtSize(title, size)
     page.drawText(title, {
@@ -397,7 +422,7 @@ export class PdfCreator implements Creator {
     const fontRegular = this.resolveFont(ctx, false, false, false)
     const entrySize = 10
     const lineGap = entrySize * 1.6
-    let yPos = ctx.margins.top + 10
+    let yPos = ctx.margins.top + 30
 
     for (const entry of ctx.tocEntries) {
       if (yPos + lineGap > ctx.pageHeight - ctx.margins.bottom) break
@@ -843,27 +868,55 @@ export class PdfCreator implements Creator {
     const nestedIndent = indent + 18
 
     for (const item of list.items) {
-      const prefix = list.ordered ? `${index}. ` : '• '
-      const itemPieces = this.extractItemPieces(item)
-      const prefixPieces: InlinePiece[] = [{ type: 'text', text: prefix }]
-      ctx.currentTopY = await this.drawInlinePieces(
-        ctx,
-        [...prefixPieces, ...itemPieces],
-        ctx.margins.left + prefixIndent,
-        ctx.currentTopY,
-        this.contentWidth(ctx, prefixIndent),
-        {
-          fontSize,
-          color,
-        },
-      )
-      ctx.currentTopY += 2
+      if (item.task) {
+        const boxSize = Math.max(fontSize * 0.65, 6)
+        const boxGap = 4
+        const boxX = ctx.margins.left + prefixIndent
+        const boxY = ctx.currentTopY + (fontSize * 0.45 - boxSize * 0.5)
+        const textIndent = prefixIndent + boxSize + boxGap
 
-      if (Array.isArray(item.tokens) && item.tokens.length > 1) {
-        await this.renderTokens(item.tokens.slice(1), config, ctx, nestedIndent, fontSize, color)
+        this.drawCheckbox(ctx, boxX, boxY, boxSize, item.checked ?? false, color)
+
+        const itemPieces = this.extractItemPieces(item)
+        ctx.currentTopY = await this.drawInlinePieces(
+          ctx,
+          itemPieces,
+          ctx.margins.left + textIndent,
+          ctx.currentTopY,
+          this.contentWidth(ctx, textIndent),
+          { fontSize, color },
+        )
+        ctx.currentTopY += 2
+
+        if (Array.isArray(item.tokens)) {
+          const contentStart = item.tokens[0]?.type === 'checkbox' ? 2 : 1
+          if (item.tokens.length > contentStart) {
+            await this.renderTokens(item.tokens.slice(contentStart), config, ctx, textIndent, fontSize, color)
+          }
+        }
+      } else {
+        const prefix = list.ordered ? `${index}. ` : '• '
+        const itemPieces = this.extractItemPieces(item)
+        const prefixPieces: InlinePiece[] = [{ type: 'text', text: prefix }]
+        ctx.currentTopY = await this.drawInlinePieces(
+          ctx,
+          [...prefixPieces, ...itemPieces],
+          ctx.margins.left + prefixIndent,
+          ctx.currentTopY,
+          this.contentWidth(ctx, prefixIndent),
+          {
+            fontSize,
+            color,
+          },
+        )
+        ctx.currentTopY += 2
+
+        if (Array.isArray(item.tokens) && item.tokens.length > 1) {
+          await this.renderTokens(item.tokens.slice(1), config, ctx, nestedIndent, fontSize, color)
+        }
+
+        if (list.ordered) index++
       }
-
-      if (list.ordered) index++
     }
 
     ctx.currentTopY += 4
@@ -974,8 +1027,9 @@ export class PdfCreator implements Creator {
 
   private inlineToPieces(tokens: Token[], inherited: { bold?: boolean; italic?: boolean } = {}): InlinePiece[] {
     const pieces: InlinePiece[] = []
+    const state = { ...inherited, insideFootnote: false }
     for (const token of tokens) {
-      this.inlineTokenToPieces(token, pieces, inherited)
+      this.inlineTokenToPieces(token, pieces, state)
     }
     return pieces
   }
@@ -983,8 +1037,11 @@ export class PdfCreator implements Creator {
   private inlineTokenToPieces(
     token: Token,
     pieces: InlinePiece[],
-    inherited: { bold?: boolean; italic?: boolean } = {},
+    state: { bold?: boolean; italic?: boolean; insideFootnote: boolean },
   ): void {
+    if (state.insideFootnote && token.type === 'text') {
+      return
+    }
     switch (token.type) {
       case 'text': {
         const text = (token as Tokens.Text).text
@@ -995,8 +1052,8 @@ export class PdfCreator implements Creator {
               pieces.push({
                 type: 'text',
                 text: segment,
-                bold: inherited.bold,
-                italic: inherited.italic,
+                bold: state.bold,
+                italic: state.italic,
               })
             }
           }
@@ -1005,12 +1062,12 @@ export class PdfCreator implements Creator {
       }
       case 'strong':
         for (const child of (token as Tokens.Strong).tokens) {
-          this.inlineTokenToPieces(child, pieces, { ...inherited, bold: true })
+          this.inlineTokenToPieces(child, pieces, { ...state, bold: true })
         }
         break
       case 'em':
         for (const child of (token as Tokens.Em).tokens) {
-          this.inlineTokenToPieces(child, pieces, { ...inherited, italic: true })
+          this.inlineTokenToPieces(child, pieces, { ...state, italic: true })
         }
         break
       case 'codespan':
@@ -1020,14 +1077,18 @@ export class PdfCreator implements Creator {
           mono: true,
         })
         break
-      case 'link':
+      case 'link': {
+        const linkToken = token as Tokens.Link
+        const isWeb = /^https?:\/\//i.test(linkToken.href)
         pieces.push({
           type: 'text',
-          text: (token as Tokens.Link).text ?? '',
-          bold: inherited.bold,
-          italic: inherited.italic,
+          text: linkToken.text ?? '',
+          bold: state.bold,
+          italic: state.italic,
+          color: isWeb ? LINK_COLOR : undefined,
         })
         break
+      }
       case 'image': {
         const imageToken = token as Tokens.Image
         const isDisplayFormula = imageToken.href.startsWith('virtual:formula-d-')
@@ -1055,10 +1116,45 @@ export class PdfCreator implements Creator {
       case 'br':
         pieces.push({ type: 'break' })
         break
+      case 'html': {
+        const htmlText = (token as Tokens.Tag).text
+        if (htmlText.startsWith('<footnote ')) {
+          const idMatch = htmlText.match(/id="([^"]+)"/)
+          if (idMatch?.[1]) {
+            const blockId = idMatch[1]
+            if (!this.footnoteCtx.footnotes.has(blockId)) {
+              this.footnoteCtx.footnoteCounter++
+              this.footnoteCtx.footnotes.set(blockId, {
+                id: this.footnoteCtx.footnoteCounter,
+                text: t('footnote-see-page', { page: '?' }),
+              })
+              this.footnoteCtx.idToBlock.set(this.footnoteCtx.footnoteCounter, blockId)
+            }
+            const fn = this.footnoteCtx.footnotes.get(blockId)!
+            pieces.push({ type: 'footnote', footnoteId: fn.id })
+            state.insideFootnote = true
+          }
+        }
+        else if (htmlText === '</footnote>') {
+          state.insideFootnote = false
+        }
+        else if (htmlText.startsWith('<blocklabel ')) {
+          const idMatch = htmlText.match(/id="([^"]+)"/)
+          if (idMatch?.[1]) {
+            const blockId = idMatch[1]
+            this.footnoteCtx.blockLabelPages.set(blockId, -1)
+            pieces.push({ type: 'blocklabel', blockId })
+          }
+        }
+        else if (htmlText === '</blocklabel>') {
+          // no-op
+        }
+        break
+      }
       default: {
         if (hasTokens(token)) {
           for (const child of token.tokens) {
-            this.inlineTokenToPieces(child, pieces, inherited)
+            this.inlineTokenToPieces(child, pieces, state)
           }
         }
       }
@@ -1125,6 +1221,42 @@ export class PdfCreator implements Creator {
         continue
       }
 
+      if (piece.type === 'blocklabel') {
+        // Track the page where this blocklabel appears
+        const pageNumber = this.getPageNumber(ctx, page)
+        if (this.footnoteCtx.blockLabelPages.get(piece.blockId) === -1) {
+          this.footnoteCtx.blockLabelPages.set(piece.blockId, pageNumber)
+        }
+        continue
+      }
+
+      if (piece.type === 'footnote') {
+        flushLine()
+        const superFont = this.resolveFont(ctx, false, false, false)
+        const superSize = Math.round(options.fontSize * 0.7)
+        const footnoteNum = String(piece.footnoteId)
+        const numWidth = superFont.widthOfTextAtSize(footnoteNum, superSize)
+        page.drawText(footnoteNum, {
+          x: cursorX,
+          y: this.toPdfY(ctx, lineStartTopY - options.fontSize * 0.3, superSize),
+          size: superSize,
+          font: superFont,
+          color: LINK_COLOR,
+        })
+        cursorX += numWidth + 1
+        // Track which page this footnote reference appears on
+        const pageNumber = this.getPageNumber(ctx, page)
+        const blockId = this.footnoteCtx.idToBlock.get(piece.footnoteId)
+        if (blockId) {
+          const pageFns = this.footnoteCtx.pageFootnotes.get(pageNumber) ?? []
+          if (!pageFns.some(f => f.footnoteId === piece.footnoteId)) {
+            pageFns.push({ footnoteId: piece.footnoteId, refPdfPage: pageNumber })
+            this.footnoteCtx.pageFootnotes.set(pageNumber, pageFns)
+          }
+        }
+        continue
+      }
+
       if (piece.type === 'image') {
         const isInlineFormula = piece.href.startsWith('virtual:formula-i-')
         const isDisplayFormula = piece.href.startsWith('virtual:formula-d-')
@@ -1185,6 +1317,10 @@ export class PdfCreator implements Creator {
         continue
       }
 
+      if (piece.type !== 'text') {
+        continue
+      }
+
       const font = options.fontOverride ?? this.resolveFont(ctx, piece.bold ?? options.bold, piece.italic ?? options.italic, piece.mono ?? false)
       const segments = piece.text.split(/(\n)/)
       for (const segment of segments) {
@@ -1223,7 +1359,7 @@ export class PdfCreator implements Creator {
             x: cursorX,
             font,
             size: options.fontSize,
-            color: options.color,
+            color: (piece).color ?? options.color,
           })
           cursorX += subWidth
         }
@@ -1249,6 +1385,9 @@ export class PdfCreator implements Creator {
         lineWidth = 0
         continue
       }
+      if (piece.type === 'footnote' || piece.type === 'blocklabel') {
+        continue
+      }
       if (piece.type === 'image') {
         if (lineWidth > 0) {
           totalHeight += lineGap
@@ -1266,6 +1405,10 @@ export class PdfCreator implements Creator {
           fitHeight = Math.min(scaled.height, image.height)
         }
         totalHeight += fitHeight + 6
+        continue
+      }
+
+      if (piece.type !== 'text') {
         continue
       }
 
@@ -1309,9 +1452,14 @@ export class PdfCreator implements Creator {
     if (!item.tokens || item.tokens.length === 0) {
       return [{ type: 'text', text: item.text ?? '' }]
     }
+    for (const token of item.tokens) {
+      if (token.type === 'paragraph') {
+        return this.inlineToPieces((token as Tokens.Paragraph).tokens)
+      }
+    }
     const first = item.tokens[0]
-    if (first && first.type === 'paragraph') {
-      return this.inlineToPieces((first as Tokens.Paragraph).tokens)
+    if (first && first.type === 'text') {
+      return this.inlineToPieces([first])
     }
     return this.inlineToPieces(item.tokens)
   }
@@ -1397,6 +1545,130 @@ export class PdfCreator implements Creator {
 
   private toPdfY(ctx: RenderContext, topY: number, height: number): number {
     return ctx.pageHeight - topY - height
+  }
+
+  private getPageNumber(ctx: RenderContext, page: PDFPage): number {
+    const pages = ctx.pdfDoc.getPages()
+    return pages.indexOf(page) + 1
+  }
+
+  private drawFootnoteAreas(ctx: RenderContext): void {
+    const pages = ctx.pdfDoc.getPages()
+    const footnoteFont = this.resolveFont(ctx, false, false, false)
+    const footnoteSize = Math.round((this.headingSizes[6] ?? this.headingSizes[1] ?? 11) * 0.9)
+    const lineGap = footnoteSize * 1.3
+    const separatorY = ctx.pageHeight - ctx.margins.bottom - 10
+    const frontMatterOffset = ctx.frontMatterCount
+
+    for (let i = 0; i < pages.length; i++) {
+      const page = pages[i]!
+      const footnotes = this.footnoteCtx.pageFootnotes.get(i + 1)
+      if (!footnotes || footnotes.length === 0) continue
+
+      // Draw separator line
+      page.drawLine({
+        start: { x: ctx.margins.left, y: this.toPdfY(ctx, separatorY, 0) },
+        end: { x: ctx.pageWidth - ctx.margins.right, y: this.toPdfY(ctx, separatorY, 0) },
+        thickness: 0.5,
+        color: HR_COLOR,
+      })
+
+      // Render each footnote
+      let footnoteY = separatorY + 8
+      for (const { footnoteId, refPdfPage } of footnotes) {
+        const blockId = this.footnoteCtx.idToBlock.get(footnoteId)
+        if (!blockId) continue
+        const fn = this.footnoteCtx.footnotes.get(blockId)
+        if (!fn) continue
+        const blockPdfPage = this.footnoteCtx.blockLabelPages.get(blockId) ?? -1
+        const displayPage = blockPdfPage - frontMatterOffset
+        if (blockPdfPage === refPdfPage || displayPage < 1) {
+          fn.text = t('footnote-see-this-page')
+        } else {
+          fn.text = t('footnote-see-page', { page: String(displayPage) })
+        }
+        const text = `${fn.id}. ${fn.text}`
+        const textWidth = footnoteFont.widthOfTextAtSize(text, footnoteSize)
+        const maxWidth = ctx.pageWidth - ctx.margins.left - ctx.margins.right - 20
+        if (textWidth > maxWidth) {
+          const words = text.split(' ')
+          let line = ''
+          for (const word of words) {
+            const testLine = line ? `${line} ${word}` : word
+            if (footnoteFont.widthOfTextAtSize(testLine, footnoteSize) > maxWidth) {
+              page.drawText(line, {
+                x: ctx.margins.left + 10,
+                y: this.toPdfY(ctx, footnoteY, footnoteSize),
+                size: footnoteSize,
+                font: footnoteFont,
+                color: QUOTE_COLOR,
+              })
+              footnoteY += lineGap
+              line = word
+            } else {
+              line = testLine
+            }
+          }
+          if (line) {
+            page.drawText(line, {
+              x: ctx.margins.left + 10,
+              y: this.toPdfY(ctx, footnoteY, footnoteSize),
+              size: footnoteSize,
+              font: footnoteFont,
+              color: QUOTE_COLOR,
+            })
+            footnoteY += lineGap
+          }
+        } else {
+          page.drawText(text, {
+            x: ctx.margins.left + 10,
+            y: this.toPdfY(ctx, footnoteY, footnoteSize),
+            size: footnoteSize,
+            font: footnoteFont,
+            color: QUOTE_COLOR,
+          })
+          footnoteY += lineGap
+        }
+      }
+    }
+  }
+
+  private drawCheckbox(
+    ctx: RenderContext,
+    x: number,
+    topY: number,
+    size: number,
+    checked: boolean,
+    color: PdfColor,
+  ): void {
+    const page = this.currentPage(ctx)
+    const pdfY = this.toPdfY(ctx, topY, size)
+
+    page.drawRectangle({
+      x,
+      y: pdfY,
+      width: size,
+      height: size,
+      borderColor: color,
+      borderWidth: 1,
+    })
+
+    if (checked) {
+      const m = size * 0.2
+      const thickness = Math.max(size * 0.12, 1.5)
+      page.drawLine({
+        start: { x: x + m, y: pdfY + size * 0.55 },
+        end: { x: x + size * 0.4, y: pdfY + m },
+        thickness,
+        color,
+      })
+      page.drawLine({
+        start: { x: x + size * 0.4, y: pdfY + m },
+        end: { x: x + size - m, y: pdfY + size * 0.7 },
+        thickness,
+        color,
+      })
+    }
   }
 
   private resolveCommand(depth: number, config: ExportConfig): string | null {

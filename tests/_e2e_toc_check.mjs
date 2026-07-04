@@ -20,7 +20,7 @@ const config = {
     enableCoverPage: false,
     useBookMetadata: false,
     coverImagePath: '',
-    toc: { enabled: true, depth: 3, title: 'Contents' },
+    toc: { enabled: true, depth: 3 },
   },
   output: {
     formats: { pdf: true, docx: false, latex: false },

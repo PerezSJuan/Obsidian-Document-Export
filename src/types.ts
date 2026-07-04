@@ -1,3 +1,9 @@
+export interface NoteMapEntry {
+  content: string
+  rawContent: string
+  path: string
+}
+
 export interface NormalizedNote {
   path: string
   title: string
@@ -23,6 +29,8 @@ export type FontFamily =
   | 'verdana'
   | 'courier-new'
   | 'consolas';
+
+export type ProgressCallback = (current: number, total: number, message: string) => void;
 
 export type PageNumberPosition =
   | 'top-left'
@@ -66,7 +74,6 @@ export interface ExportConfig {
     toc: {
       enabled: boolean;
       depth: number;
-      title: string;
     };
   };
   output: {

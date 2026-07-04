@@ -25,7 +25,7 @@ const defaultConfig: ExportConfig = {
     enableCoverPage: false,
     useBookMetadata: false,
     coverImagePath: '',
-    toc: { enabled: false, depth: 0, title: 'Índice' },
+    toc: { enabled: false, depth: 0 },
   },
   output: {
     formats: { pdf: true, docx: false, latex: false },
@@ -64,11 +64,11 @@ describe('assemble', () => {
     })
 
     it('includes toc config when enabled', () => {
-      const config = { ...defaultConfig, frontMatter: { ...defaultConfig.frontMatter, toc: { enabled: true, depth: 3, title: 'Table of Contents' } } }
+      const config = { ...defaultConfig, frontMatter: { ...defaultConfig.frontMatter, toc: { enabled: true, depth: 3 } } }
       const result = assemble([note('# C1')], config)
       expect(result).toMatch(/toc: true/)
       expect(result).toMatch(/toc-depth: 3/)
-      expect(result).toMatch(/toc-title: Table of Contents/)
+      expect(result).toMatch(/toc-title: Contents/)
     })
 
     it('omits toc when disabled', () => {
@@ -100,7 +100,7 @@ describe('assemble', () => {
     })
 
     it('produces valid frontmatter when only toc is configured without cover', () => {
-      const config = { ...defaultConfig, source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, title: '' } }, frontMatter: { ...defaultConfig.frontMatter, toc: { enabled: true, depth: 2, title: 'Index' } } }
+      const config = { ...defaultConfig, source: { ...defaultConfig.source, metadata: { ...defaultConfig.source.metadata, title: '' } }, frontMatter: { ...defaultConfig.frontMatter, toc: { enabled: true, depth: 2 } } }
       const result = assemble([note('Body')], config)
       expect(result).toMatch(/toc: true/)
       expect(result).toMatch(/toc-depth: 2/)
@@ -136,7 +136,7 @@ describe('assemble', () => {
       const config = {
         ...defaultConfig,
         source: { ...defaultConfig.source, metadata: { title: 'Book', subtitle: 'A Story', author: 'Me' } },
-        frontMatter: { ...defaultConfig.frontMatter, toc: { enabled: true, depth: 3, title: 'TOC' } },
+        frontMatter: { ...defaultConfig.frontMatter, toc: { enabled: true, depth: 3 } },
       }
       const result = assemble([note('Body')], config)
       const frontmatter = result.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? ''

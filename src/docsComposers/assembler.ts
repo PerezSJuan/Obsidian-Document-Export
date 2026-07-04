@@ -1,4 +1,5 @@
 import { type NormalizedNote, type ExportConfig } from '../types.js'
+import { t } from '../i18n.js'
 
 export function assemble(
   notes: NormalizedNote[],
@@ -27,9 +28,7 @@ function buildFrontmatter(config: ExportConfig): string {
   if (config.frontMatter.toc.enabled) {
     lines.push(`toc: true`)
     lines.push(`toc-depth: ${config.frontMatter.toc.depth}`)
-    if (config.frontMatter.toc.title) {
-      lines.push(`toc-title: ${formatYamlValue(config.frontMatter.toc.title)}`)
-    }
+    lines.push(`toc-title: ${formatYamlValue(t('toc-default-title'))}`)
   }
 
   lines.push('')

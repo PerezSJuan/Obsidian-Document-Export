@@ -5,6 +5,7 @@ import type { ExportConfig, FontFamily, HeadingMapping } from '../../types.js'
 import type { Creator, RenderResult } from './creator.js'
 import { sanitizeFilename } from './creator.js'
 import type { AssetResolver } from './assetResolver.js'
+import { t } from '../../i18n.js'
 
 type LatexCommand = 'part' | 'chapter' | 'section' | 'subsection' | 'subsubsection' | 'paragraph'
 
@@ -145,6 +146,7 @@ export class LatexCreator implements Creator {
       '\\usepackage{fancyhdr}',
       '\\usepackage{listings}',
       '\\usepackage{xcolor}',
+      '\\usepackage{amssymb}',
       '\\definecolor{codekw}{HTML}{1F4E79}',
       '\\definecolor{codestr}{HTML}{2E7D32}',
       '\\definecolor{codecmt}{HTML}{808080}',
@@ -344,6 +346,22 @@ export class LatexCreator implements Creator {
         if (html === '</sub>') return '}'
         if (html === '<sup>') return '\\textsuperscript{'
         if (html === '</sup>') return '}'
+        if (html.startsWith('<blocklabel ')) {
+          const idMatch = html.match(/id="([^"]+)"/)
+          if (idMatch) {
+            return `\\label{block:${idMatch[1]}}`
+          }
+          return ''
+        }
+        if (html.startsWith('<footnote ')) {
+          const idMatch = html.match(/id="([^"]+)"/)
+          if (idMatch) {
+            const seePage = t('footnote-see-page', { page: `\\pageref{block:${idMatch[1]}}` })
+            return `\\footnote{${this.escapeLatex(seePage)}}`
+          }
+          return ''
+        }
+        if (html === '</footnote>' || html === '</blocklabel>') return ''
         return ''
       }
       default:
@@ -356,6 +374,10 @@ export class LatexCreator implements Creator {
     let path = link.href
     try { path = decodeURIComponent(path) } catch { /* empty */ }
     const href = this.escapeLatex(path)
+    const isWeb = /^https?:\/\//i.test(href)
+    if (isWeb) {
+      return `\\href{${href}}{\\textcolor[HTML]{003366}{${text}}}`
+    }
     return `\\href{${href}}{${text}}`
   }
 
@@ -437,7 +459,9 @@ export class LatexCreator implements Creator {
     const env = list.ordered ? 'enumerate' : 'itemize'
     const items = list.items.map(item => {
       const text = item.tokens ? this.renderTokens(item.tokens, config).trim() : (item.text ?? '')
-      const prefix = item.task ? (item.checked ? '[x] ' : '[ ] ') : ''
+      const prefix = item.task
+        ? (item.checked ? '$\\ooalign{$\\square$\\cr\\hss$\\checkmark$\\hss}$ ' : '$\\square$ ')
+        : ''
       return `  \\item ${prefix}${text}`
     })
     return `\\begin{${env}}\n${items.join('\n')}\n\\end{${env}}`
