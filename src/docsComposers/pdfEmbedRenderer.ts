@@ -50,7 +50,12 @@ export async function renderPdfEmbeds(
         const buffer = await blob.arrayBuffer()
         const id = `pdf-${Date.now()}-${i}`
         assets.writeVirtual?.(`virtual:${id}.png`, buffer)
-        replacement += `\n\n![PDF Page ${i}](virtual:${id}.png)\n`
+        replacement += `\n![PDF Page ${i}](virtual:${id}.png)\n`
+      }
+
+      // Remove leading newlines to avoid empty paragraph before first image
+      while (replacement.startsWith('\n')) {
+        replacement = replacement.slice(1)
       }
 
       result = result.split(full).join(replacement)

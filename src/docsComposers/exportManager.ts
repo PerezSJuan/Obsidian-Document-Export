@@ -57,7 +57,6 @@ export class ExportManager {
     bodyMd = await this.processMermaidBlocks(bodyMd, assets)
 
     onProgress?.(2, 5, t('progress-formulas'))
-    const bodyMdForLatex = bodyMd
     bodyMd = await renderFormulasInMarkdown(bodyMd, assets)
 
     onProgress?.(3, 5, t('progress-pdf-embeds'))
@@ -69,8 +68,7 @@ export class ExportManager {
     if (formats.latex) {
       const creator = this.creators.get('latex')
       if (creator) {
-        const bodyForLatex = convertTags(bodyMdForLatex, config.structure.tagMode)
-        const result = await creator.render(bodyForLatex, config, assets)
+        const result = await creator.render(bodyMd, config, assets)
         results.push({ format: 'latex', fileName: result.fileName, data: result.data, extraFiles: result.extraFiles })
       }
     }

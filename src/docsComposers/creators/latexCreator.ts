@@ -45,6 +45,10 @@ export class LatexCreator implements Creator {
 
     const preamble = this.buildPreamble(config)
 
+    const tocBlock = config.frontMatter.toc.enabled && this.hasTocEntries(tokens, config.frontMatter.toc.depth)
+      ? '\\tableofcontents\n\\newpage\n'
+      : ''
+
     const body = this.renderTokens(tokens, config)
 
     const extraFiles: { name: string; data: ArrayBuffer }[] = []
@@ -59,7 +63,7 @@ export class LatexCreator implements Creator {
     }
 
     const result: RenderResult = {
-      data: preamble + body + '\n\\end{document}\n',
+      data: preamble + tocBlock + body + '\n\\end{document}\n',
       fileName: sanitizeFilename(config.source.metadata.title, '.tex'),
     }
     if (extraFiles.length > 0) result.extraFiles = extraFiles
@@ -227,12 +231,17 @@ export class LatexCreator implements Creator {
       }
     }
 
-    if (config.frontMatter.toc.enabled) {
-      lines.push('\\tableofcontents')
-      lines.push('\\newpage')
-    }
-
     return lines.join('\n') + '\n'
+  }
+
+  private hasTocEntries(tokens: Token[], depth: number): boolean {
+    for (const token of tokens) {
+      if (token.type === 'heading') {
+        const heading = token as Tokens.Heading
+        if (heading.depth <= depth) return true
+      }
+    }
+    return false
   }
 
   private renderTokens(tokens: Token[], config: ExportConfig): string {
@@ -397,6 +406,11 @@ export class LatexCreator implements Creator {
     if (!isImage) {
       const altText = image.text ? this.escapeLatex(image.text) : escapedPath
       return `[\\href{${escapedPath}}{${altText}}]`
+    }
+
+    const isPdfPage = rawPath.startsWith('virtual:pdf-')
+    if (isPdfPage) {
+      return `\\clearpage\n\\includegraphics[width=\\paperwidth, height=\\paperheight, keepaspectratio]{${escapedPath}}\n\\clearpage`
     }
 
     return `\\includegraphics[width=\\textwidth]{${escapedPath}}`

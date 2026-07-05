@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
+	"name": "obsidian-document-export",
 	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"description": "Export your vault to PDF, DOCX, or LaTeX book formats.",
 	"main": "main.js",
 	"type": "module",
 	"scripts": {
@@ -13,11 +13,10 @@
 		"test": "vitest run",
 		"test:watch": "vitest"
 	},
-	"keywords": [],
-	"license": "0-BSD",
+	"keywords": ["obsidian", "export", "pdf", "docx", "latex", "book"],
+	"license": "MIT",
 	"dependencies": {
 		"docx": "^9.7.1",
-		"html-to-image": "^1.11.13",
 		"katex": "^0.16.47",
 		"marked": "^18.0.5",
 		"mermaid": "^11.15.0",

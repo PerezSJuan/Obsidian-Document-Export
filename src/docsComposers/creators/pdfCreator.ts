@@ -221,11 +221,13 @@ export class PdfCreator implements Creator {
     let tocPageIndex = -1
     if (config.frontMatter.toc.enabled) {
       ctx.tocEntries = this.extractTocEntries(tokens, config.frontMatter.toc.depth)
-      ctx.tocIndex = 0
-      const page = ctx.pdfDoc.addPage(PAGE_SIZE)
-      tocPageIndex = ctx.pdfDoc.getPageCount() - 1
-      ctx.currentTopY = ctx.margins.top
-      this.renderTocTitle(ctx, config, page)
+      if (ctx.tocEntries.length > 0) {
+        ctx.tocIndex = 0
+        const page = ctx.pdfDoc.addPage(PAGE_SIZE)
+        tocPageIndex = ctx.pdfDoc.getPageCount() - 1
+        ctx.currentTopY = ctx.margins.top
+        this.renderTocTitle(ctx, config, page)
+      }
     }
 
     pdfDoc.addPage(PAGE_SIZE)
@@ -1260,13 +1262,45 @@ export class PdfCreator implements Creator {
       if (piece.type === 'image') {
         const isInlineFormula = piece.href.startsWith('virtual:formula-i-')
         const isDisplayFormula = piece.href.startsWith('virtual:formula-d-')
-        if (!isInlineFormula) {
-          flushLine()
-        }
+        const isPdfPage = piece.href.startsWith('virtual:pdf-')
+
         const image = await this.getImage(ctx, piece.href)
         if (!image) {
           continue
         }
+
+        if (isPdfPage) {
+          // Full-page PDF: discard pending line, add new page and draw image
+          linePieces.length = 0
+          const pageContentWidth = ctx.pageWidth - ctx.margins.left - ctx.margins.right
+          const pageContentHeight = ctx.pageHeight - ctx.margins.top - ctx.margins.bottom
+          const fit = image.scaleToFit(pageContentWidth, pageContentHeight)
+
+          // Only add a new page if the image doesn't fit on the current page
+          if (currentTopY + fit.height > pageBottom) {
+            ctx.pdfDoc.addPage(PAGE_SIZE)
+            currentTopY = ctx.margins.top
+            page = this.currentPage(ctx)
+          }
+
+          const imgX = ctx.margins.left + (pageContentWidth - fit.width) / 2
+          const imgY = currentTopY
+          page.drawImage(image, {
+            x: imgX,
+            y: this.toPdfY(ctx, imgY, fit.height),
+            width: fit.width,
+            height: fit.height,
+          })
+          currentTopY += fit.height
+          lineStartTopY = currentTopY
+          cursorX = x
+          continue
+        }
+
+        if (!isInlineFormula) {
+          flushLine()
+        }
+
         const maxImageHeight = isDisplayFormula
           ? DISPLAY_FORMULA_MAX_HEIGHT
           : isInlineFormula
@@ -1392,6 +1426,12 @@ export class PdfCreator implements Creator {
         if (lineWidth > 0) {
           totalHeight += lineGap
           lineWidth = 0
+        }
+        const isPdfPage = piece.href.startsWith('virtual:pdf-')
+        if (isPdfPage) {
+          // PDF pages take a full page - account for page break
+          totalHeight += lineGap + (ctx.pageHeight - ctx.margins.top - ctx.margins.bottom)
+          continue
         }
         const image = this.imageCacheLookup(ctx, piece.href)
         let fitHeight = 80

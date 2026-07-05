@@ -103,26 +103,28 @@ export class DocxCreator implements Creator {
     if (config.frontMatter.toc.enabled) {
       const tocDepth = config.frontMatter.toc.depth || 6
       const tocEntries = this.buildTocFromTokens(tokens, config)
-      sections.push({
-        children: [
-          new Paragraph({
-            children: [new TextRun({
-              text: t('toc-default-title'),
-              bold: true,
-              size: 28,
-              font: this.fontName,
-            })],
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 200 },
-          }),
-          new TableOfContents('Table of Contents', {
-            hyperlink: true,
-            headingStyleRange: `1-${tocDepth}`,
-            contentChildren: tocEntries,
-          }),
-          new Paragraph({ children: [new TextRun({ break: 1 })] }),
-        ],
-      })
+      if (tocEntries.length > 0) {
+        sections.push({
+          children: [
+            new Paragraph({
+              children: [new TextRun({
+                text: t('toc-default-title'),
+                bold: true,
+                size: 28,
+                font: this.fontName,
+              })],
+              alignment: AlignmentType.CENTER,
+              spacing: { after: 200 },
+            }),
+            new TableOfContents('Table of Contents', {
+              hyperlink: true,
+              headingStyleRange: `1-${tocDepth}`,
+              contentChildren: tocEntries,
+            }),
+            new Paragraph({ children: [new TextRun({ break: 1 })] }),
+          ],
+        })
+      }
     }
 
     const footerChildren: Paragraph[] = []
@@ -828,18 +830,29 @@ export class DocxCreator implements Creator {
       let width = 400
       let height = 300
       if (dim) {
-        let maxW = 400
-        let maxH = 500
-        if (href.startsWith('virtual:formula-i-')) {
-          const actualFontPt = this.baseFontSize / 2
-          maxH = Math.max(actualFontPt * 1.2, 8)
-        } else if (href.startsWith('virtual:formula-d-')) {
-          maxW = DISPLAY_FORMULA_MAX_WIDTH
-          maxH = DISPLAY_FORMULA_MAX_HEIGHT
+        const isPdfPage = href.startsWith('virtual:pdf-')
+        if (isPdfPage) {
+          runs.push(new TextRun({ break: 1 }))
+          // Full A4 page: 160mm × 246mm content area at 96dpi = 605 × 930 px
+          const maxWPx = Math.round(160 / 25.4 * 96)
+          const maxHPx = Math.round(246 / 25.4 * 96)
+          const scaled = scaleToFit(dim.width, dim.height, maxWPx, maxHPx)
+          width = scaled.width
+          height = scaled.height
+        } else {
+          let maxW = 400
+          let maxH = 500
+          if (href.startsWith('virtual:formula-i-')) {
+            const actualFontPt = this.baseFontSize / 2
+            maxH = Math.max(actualFontPt * 1.2, 8)
+          } else if (href.startsWith('virtual:formula-d-')) {
+            maxW = DISPLAY_FORMULA_MAX_WIDTH
+            maxH = DISPLAY_FORMULA_MAX_HEIGHT
+          }
+          const scaled = scaleToFit(dim.width, dim.height, maxW, maxH)
+          width = scaled.width
+          height = scaled.height
         }
-        const scaled = scaleToFit(dim.width, dim.height, maxW, maxH)
-        width = scaled.width
-        height = scaled.height
       }
       runs.push(new ImageRun({
         type: ext as 'jpg' | 'png' | 'gif' | 'bmp',

@@ -75,7 +75,7 @@ The script reads the plugin ID from `manifest.json`, creates a subdirectory name
 │   │       ├── assetResolver.ts   # AssetResolver interface
 │   │       ├── docxCreator.ts     # DOCX renderer (docx.js)
 │   │       ├── latexCreator.ts    # LaTeX renderer
-│   │       └── pdfCreator.ts      # PDF renderer (PDFKit)
+│   │       └── pdfCreator.ts      # PDF renderer (pdf-lib)
 │   ├── infra/
 │   │   └── obsidianAssetResolver.ts  # Vault-backed asset resolution
 │   └── utils/
