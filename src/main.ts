@@ -77,14 +77,32 @@ export default class DocumentExportPlugin extends Plugin {
       const rawContents = new Map<string, string>()
 
       if (config.source.mode === 'manifest') {
-        progressModal.setProgress(0, 100, t('progress-reading'));
-        const file = vault.getAbstractFileByPath(config.source.indexNotePath);
-        if (!file || !(file instanceof TFile)) {
+        const indexFile = vault.getAbstractFileByPath(config.source.indexNotePath);
+        if (!indexFile || !(indexFile instanceof TFile)) {
           throw new Error(t('error-index-not-found') + ': ' + config.source.indexNotePath);
         }
-        const rawContent = await vault.read(file);
-        rawContents.set(file.path, rawContent)
-        notes.push(normalizeNote(rawContent, file.path, normalizeOpts));
+        const indexContent = await vault.read(indexFile);
+        rawContents.set(indexFile.path, indexContent);
+        notes.push(normalizeNote(indexContent, indexFile.path, normalizeOpts));
+
+        const linkRegex = /\[\[([^\]]+?)\]\]/g;
+        const mdFiles = vault.getMarkdownFiles();
+        const seen = new Set<string>([indexFile.path]);
+        let linkMatch: RegExpExecArray | null;
+        while ((linkMatch = linkRegex.exec(indexContent)) !== null) {
+          const inner = linkMatch[1]?.trim();
+          if (!inner) continue;
+          const target = inner.split('|')[0]?.trim()?.split('#')[0]?.trim();
+          if (!target || seen.has(target)) continue;
+          const linkedFile = mdFiles.find(
+            (f) => f.basename === target || f.path === target + '.md' || f.path.endsWith('/' + target + '.md'),
+          );
+          if (!linkedFile) continue;
+          seen.add(linkedFile.path);
+          const rawContent = await vault.read(linkedFile);
+          rawContents.set(linkedFile.path, rawContent);
+          notes.push(normalizeNote(rawContent, linkedFile.path, normalizeOpts));
+        }
       } else {
         const total = config.source.selectedNotes.length;
         for (let i = 0; i < total; i++) {
@@ -183,18 +201,17 @@ export default class DocumentExportPlugin extends Plugin {
       }
 
       // Cleanup: remove temporary image files from the export folder
-      // Keep them for LaTeX since it references the actual files
+      // KaTeX formulas are always removed (LaTeX uses native math)
+      // Mermaid/PDF embeds are kept only for LaTeX (it references actual files)
       for (const extraPath of writtenExtraPaths) {
         const fileName = extraPath.split('/').pop() ?? '';
-        const isMermaid = fileName.startsWith('virtual_mermaid');
         const isFormula = fileName.startsWith('virtual_formula');
+        const isMermaid = fileName.startsWith('virtual_mermaid');
+        const isPdfPage = fileName.startsWith('virtual_pdf');
 
-        if ((isMermaid || isFormula) && !config.output.formats.latex) {
-          const file = vault.getAbstractFileByPath(extraPath);
-          if (file && file instanceof TFile) {
-            await this.app.fileManager.trashFile(file);
-          }
-        } else if (!isMermaid && !isFormula && !config.output.formats.latex) {
+        const shouldDelete = isFormula || ((!isMermaid && !isPdfPage) ? false : !config.output.formats.latex);
+
+        if (shouldDelete) {
           const file = vault.getAbstractFileByPath(extraPath);
           if (file && file instanceof TFile) {
             await this.app.fileManager.trashFile(file);

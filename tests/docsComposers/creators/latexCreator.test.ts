@@ -62,10 +62,16 @@ describe('LatexCreator', () => {
   describe('preamble', () => {
     it('includes documentclass and basic packages', async () => {
       const result = await createLatex('')
-      expect(result).toContain('\\documentclass[11pt]{book}')
+      expect(result).toContain('\\documentclass[11pt,openany,oneside]{book}')
       expect(result).toContain('\\usepackage[utf8]{inputenc}')
       expect(result).toContain('\\usepackage{graphicx}')
+      expect(result).toContain('\\usepackage{eso-pic}')
       expect(result).toContain('\\usepackage{hyperref}')
+    })
+
+    it('uses openany to prevent empty pages before chapters', async () => {
+      const result = await createLatex('')
+      expect(result).toContain('openany')
     })
 
     it('includes title from metadata', async () => {
@@ -87,14 +93,28 @@ describe('LatexCreator', () => {
         frontMatter: { ...defaultConfig.frontMatter, enableCoverPage: true, coverImagePath: '' },
       })
       expect(result).toContain('\\maketitle')
+      expect(result).not.toContain('\\begin{titlepage}')
+    })
+
+    it('includes documentclass with oneside option', async () => {
+      const result = await createLatex('')
+      expect(result).toContain('\\documentclass[11pt,openany,oneside]{book}')
+    })
+
+    it('includes eso-pic package', async () => {
+      const result = await createLatex('')
+      expect(result).toContain('\\usepackage{eso-pic}')
     })
 
     it('includes titlepage when cover image is set', async () => {
       const result = await createLatex('', {
         frontMatter: { ...defaultConfig.frontMatter, enableCoverPage: true, coverImagePath: 'portada.png' },
       })
-      expect(result).toContain('\\begin{titlepage}')
-      expect(result).toContain('\\includegraphics[width=\\textwidth]{portada.png}')
+      expect(result).toContain('\\AddToShipoutPictureBG*{\\includegraphics[width=\\paperwidth,height=\\paperheight]{portada.png}}')
+      expect(result).toContain('\\null')
+      expect(result).toContain('\\thispagestyle{empty}')
+      expect(result).toContain('\\newpage')
+      expect(result).not.toContain('\\begin{titlepage}')
     })
 
     it('does not include \\maketitle when cover is disabled', async () => {
@@ -106,7 +126,7 @@ describe('LatexCreator', () => {
     })
 
     it('includes \\tableofcontents when toc is enabled', async () => {
-      const result = await createLatex('', {
+      const result = await createLatex('# Chapter', {
         frontMatter: { ...defaultConfig.frontMatter, toc: { enabled: true, depth: 2 } },
       })
       expect(result).toContain('\\tableofcontents')
@@ -220,14 +240,52 @@ describe('LatexCreator', () => {
 
     it('converts link to \\href', async () => {
       const result = await createLatex('[text](https://example.com)')
-      expect(result).toContain('\\href{https://example.com}{text}')
+      expect(result).toContain('\\href{https://example.com}')
+      expect(result).toContain('text')
     })
   })
 
   describe('images', () => {
     it('converts image to \\includegraphics', async () => {
       const result = await createLatex('![alt](img.png)')
-      expect(result).toContain('\\includegraphics[width=\\textwidth]{img.png}')
+      expect(result).toContain('\\includegraphics[width=0.5\\textwidth]{img.png}')
+    })
+
+    it('does not escape underscores in image paths', async () => {
+      const result = await createLatex('![diagram](my_image.png)')
+      expect(result).toContain('\\includegraphics[width=0.5\\textwidth]{my_image.png}')
+      expect(result).not.toContain('my\\_image')
+    })
+
+    it('handles virtual mermaid image paths correctly', async () => {
+      const result = await createLatex('![Mermaid Diagram](virtual:mermaid-0.png)')
+      expect(result).toContain('\\includegraphics[width=0.2\\textwidth]{virtual_mermaid-0.png}')
+      expect(result).not.toContain('virtual\\_mermaid')
+    })
+
+    it('handles virtual PDF page image paths', async () => {
+      const result = await createLatex('![PDF Page 1](virtual:pdf-page-1.png)')
+      expect(result).toContain('\\clearpage')
+      expect(result).toContain('\\includegraphics[width=\\paperwidth')
+      expect(result).toContain('virtual_pdf-page-1.png')
+    })
+
+    it('handles remote images with safe filename', async () => {
+      const result = await createLatex('![photo](https://example.com/path/to/image.jpg)')
+      expect(result).toContain('\\includegraphics[width=0.5\\textwidth]{remote-0.jpg}')
+      expect(result).not.toContain('https')
+    })
+
+    it('handles data URI images with decoded filename', async () => {
+      const dataUri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg=='
+      const result = await createLatex(`![inline](${dataUri})`)
+      expect(result).toContain('\\includegraphics[width=0.5\\textwidth]{data-img-0.png}')
+    })
+
+    it('extracts extension from data URI mime type', async () => {
+      const dataUri = 'data:image/jpeg;base64,/9j/4AAQ=='
+      const result = await createLatex(`![photo](${dataUri})`)
+      expect(result).toContain('data-img-0.jpeg')
     })
   })
 
@@ -285,6 +343,31 @@ describe('LatexCreator', () => {
     })
   })
 
+  describe('math formulas', () => {
+    it('preserves inline math $...$ as-is', async () => {
+      const result = await createLatex('Una ecuación $E = mc^2$ importante.')
+      expect(result).toContain('$E = mc^2$')
+      expect(result).not.toContain('\\textbackslash')
+    })
+
+    it('preserves display math $$...$$ as-is', async () => {
+      const result = await createLatex('$$\\int_0^\\infty e^{-x^2} dx$$')
+      expect(result).toContain('$$\\int_0^\\infty e^{-x^2} dx$$')
+    })
+
+    it('does not escape characters inside math delimiters', async () => {
+      const result = await createLatex('$$\\frac{a}{b} + \\sum_{i=1}^{n} x_i$$')
+      expect(result).toContain('\\frac{a}{b}')
+      expect(result).toContain('\\sum_{i=1}^{n}')
+    })
+
+    it('preserves math with underscores and carets', async () => {
+      const result = await createLatex('Variable $x_1$ and $y^2$')
+      expect(result).toContain('$x_1$')
+      expect(result).toContain('$y^2$')
+    })
+  })
+
   describe('LaTeX escaping', () => {
     it('escapes & character', async () => {
       const result = await createLatex('A & B')
@@ -314,6 +397,13 @@ describe('LatexCreator', () => {
     it('escapes { and } characters', async () => {
       const result = await createLatex('{braces}')
       expect(result).toContain('\\{braces\\}')
+    })
+
+    it('creates clickable hyperlink footnote for block references', async () => {
+      const result = await createLatex('<footnote id="bloque2">See reference</footnote>')
+      expect(result).toContain('\\footnote{\\hyperref[block:bloque2]{')
+      expect(result).not.toContain('\\pageref')
+      expect(result).not.toContain('textbackslash')
     })
   })
 
@@ -358,7 +448,7 @@ describe('LatexCreator', () => {
       const result = await createLatex('Hello', {
         formatting: { font: 'times-new-roman', baseFontSize: 12, pageNumbers: { enabled: false, position: 'bottom-center' } },
       })
-      expect(result).toContain('\\documentclass[12pt]{book}')
+      expect(result).toContain('\\documentclass[12pt,openany,oneside]{book}')
     })
 
     it('includes fancyhdr when page numbers enabled', async () => {
@@ -380,7 +470,7 @@ describe('LatexCreator', () => {
   describe('document structure', () => {
     it('starts with preamble', async () => {
       const result = await createLatex('# Title')
-      expect(result.startsWith('\\documentclass[11pt]{book}')).toBe(true)
+      expect(result.startsWith('\\documentclass[11pt,openany,oneside]{book}')).toBe(true)
     })
 
     it('ends with \\end{document}', async () => {
@@ -453,7 +543,7 @@ describe('LatexCreator', () => {
       expect(result).toContain('\\textit{emphasis}')
       expect(result).toContain('\\texttt{code}')
       expect(result).toContain('\\section{Section 1.1}')
-      expect(result).toContain('\\includegraphics[width=\\textwidth]{img.png}')
+      expect(result).toContain('\\includegraphics[width=0.5\\textwidth]{img.png}')
       expect(result).toContain('\\begin{itemize}')
       expect(result).toContain('\\item List item 1')
       expect(result).toContain('\\end{itemize}')

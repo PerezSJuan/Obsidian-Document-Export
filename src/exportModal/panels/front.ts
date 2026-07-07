@@ -1,6 +1,6 @@
 import { Notice } from 'obsidian';
 import type { ExportVaultModal } from '../modal.js';
-import { buildPanelHeading, buildSectionHeading, buildFieldLabel, createToggleRow, createPathField, createTextField } from '../helpers.js';
+import { buildPanelHeading, buildSectionHeading, buildFieldLabel, createToggleRow, createPathField } from '../helpers.js';
 import { normalizeVaultRelativePath } from '../../utils/vaultPath.js';
 import { t } from '../../i18n.js';
 

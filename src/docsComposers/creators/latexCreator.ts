@@ -39,9 +39,15 @@ export class LatexCreator implements Creator {
     assets: AssetResolver,
   ): Promise<RenderResult> {
     this.imagePathMap.clear()
+    this.dataUriMap.clear()
+    this.imageCounter = 0
     const tokens = marked.lexer(markdown)
 
     this.collectImages(tokens)
+
+    if (config.frontMatter.coverImagePath) {
+      this.addImage(config.frontMatter.coverImagePath)
+    }
 
     const preamble = this.buildPreamble(config)
 
@@ -57,8 +63,22 @@ export class LatexCreator implements Creator {
         const resolved = assets.resolve(origPath, '')
         const data = await assets.read(resolved)
         extraFiles.push({ name: safePath, data })
-      } catch {
-        // image read failed silently
+      } catch (e) {
+        console.error(`[LaTeX export] Failed to read image: ${origPath}`, e)
+      }
+    }
+
+    for (const [dataUri, safePath] of this.dataUriMap) {
+      try {
+        const base64 = dataUri.split(',')[1] ?? ''
+        const binaryStr = atob(base64)
+        const bytes = new Uint8Array(binaryStr.length)
+        for (let i = 0; i < binaryStr.length; i++) {
+          bytes[i] = binaryStr.charCodeAt(i)
+        }
+        extraFiles.push({ name: safePath, data: bytes.buffer })
+      } catch (e) {
+        console.error(`[LaTeX export] Failed to decode data URI`, e)
       }
     }
 
@@ -123,12 +143,30 @@ export class LatexCreator implements Creator {
     }
   }
 
+  private imageCounter = 0
+  private dataUriMap = new Map<string, string>()
+
   private addImage(href: string): void {
     if (!href) return
-    if (/^data:/i.test(href)) return
     let clean = href
     try { clean = decodeURIComponent(clean) } catch { /* empty */ }
-    const safe = clean.replace(/[\\/:*?"<>|]/g, '_')
+
+    if (/^data:/i.test(clean)) {
+      const extMatch = clean.match(/^data:image\/(\w+)/i)
+      const ext = extMatch?.[1]?.toLowerCase() ?? 'png'
+      const safe = `data-img-${this.imageCounter++}.${ext}`
+      this.dataUriMap.set(clean, safe)
+      return
+    }
+
+    let safe: string
+    if (/^https?:\/\//i.test(clean)) {
+      const extMatch = clean.match(/\.(\w{2,4})(?:\?|$)/)
+      const ext = extMatch?.[1] ?? 'png'
+      safe = `remote-${this.imageCounter++}.${ext}`
+    } else {
+      safe = clean.replace(/[\\/:*?"<>|]/g, '_')
+    }
     if (!this.imagePathMap.has(clean)) {
       this.imagePathMap.set(clean, safe)
     }
@@ -140,11 +178,12 @@ export class LatexCreator implements Creator {
     const fontSize = config.formatting.baseFontSize
 
     const lines: string[] = [
-      `\\documentclass[${fontSize}pt]{book}`,
+      `\\documentclass[${fontSize}pt,openany,oneside]{book}`,
       '\\usepackage[utf8]{inputenc}',
       '\\usepackage[T1]{fontenc}',
       '\\usepackage{lmodern}',
       '\\usepackage{graphicx}',
+      '\\usepackage{eso-pic}',
       '\\usepackage{hyperref}',
       '\\usepackage{tocloft}',
       '\\usepackage{fancyhdr}',
@@ -177,6 +216,8 @@ export class LatexCreator implements Creator {
       '  basicstyle=\\small\\ttfamily,',
       '  breaklines=true,',
       '  frame=single,',
+      '  showspaces=false,',
+      '  showstringspaces=false,',
       '  backgroundcolor=\\color[gray]{0.95},',
       '  keywordstyle=\\color{codekw}\\bfseries,',
       '  stringstyle=\\color{codestr},',
@@ -218,15 +259,16 @@ export class LatexCreator implements Creator {
     lines.push('\\begin{document}')
 
     if (config.frontMatter.enableCoverPage && (config.frontMatter.coverImagePath || meta.title || meta.subtitle || meta.author)) {
-      if (config.formatting.pageNumbers.enabled) {
-        lines.push('\\thispagestyle{empty}')
-      }
       if (config.frontMatter.coverImagePath) {
-        lines.push('\\begin{titlepage}')
-        lines.push('\\centering')
-        lines.push(`\\includegraphics[width=\\textwidth]{${this.escapeLatex(config.frontMatter.coverImagePath)}}`)
-        lines.push('\\end{titlepage}')
+        const safeCoverPath = this.imagePathMap.get(config.frontMatter.coverImagePath) ?? this.escapeLatex(config.frontMatter.coverImagePath)
+        lines.push('\\AddToShipoutPictureBG*{\\includegraphics[width=\\paperwidth,height=\\paperheight]{' + safeCoverPath + '}}')
+        lines.push('\\null')
+        lines.push('\\thispagestyle{empty}')
+        lines.push('\\newpage')
       } else {
+        if (config.formatting.pageNumbers.enabled) {
+          lines.push('\\thispagestyle{empty}')
+        }
         lines.push('\\maketitle')
       }
     }
@@ -365,8 +407,9 @@ export class LatexCreator implements Creator {
         if (html.startsWith('<footnote ')) {
           const idMatch = html.match(/id="([^"]+)"/)
           if (idMatch) {
-            const seePage = t('footnote-see-page', { page: `\\pageref{block:${idMatch[1]}}` })
-            return `\\footnote{${this.escapeLatex(seePage)}}`
+            const label = `block:${idMatch[1]}`
+            const text = t('footnote-see-this-page')
+            return `\\footnote{\\hyperref[${label}]{${text}}}`
           }
           return ''
         }
@@ -395,30 +438,33 @@ export class LatexCreator implements Creator {
     try { rawPath = decodeURIComponent(rawPath) } catch { /* empty */ }
 
     if (/^data:/i.test(rawPath)) {
-      const altText = image.text ? this.escapeLatex(image.text) : '[image]'
-      return altText
+      const safePath = this.dataUriMap.get(rawPath)
+      if (safePath) {
+        return `\\includegraphics[width=0.5\\textwidth]{${safePath}}`
+      }
+      return image.text ? this.escapeLatex(image.text) : '[image]'
     }
 
     const safePath = this.imagePathMap.get(rawPath) ?? rawPath
-    const escapedPath = this.escapeLatex(safePath)
-    
-    const isImage = /\.(png|jpe?g|gif|bmp|pdf|eps)$/i.test(rawPath)
+    const isImage = /\.(png|jpe?g|gif|bmp|pdf|eps)$/i.test(safePath)
     if (!isImage) {
-      const altText = image.text ? this.escapeLatex(image.text) : escapedPath
-      return `[\\href{${escapedPath}}{${altText}}]`
+      const altText = image.text ? this.escapeLatex(image.text) : safePath
+      return `[\\href{${safePath}}{${altText}}]`
     }
 
     const isPdfPage = rawPath.startsWith('virtual:pdf-')
     if (isPdfPage) {
-      return `\\clearpage\n\\includegraphics[width=\\paperwidth, height=\\paperheight, keepaspectratio]{${escapedPath}}\n\\clearpage`
+      return `\\clearpage\n\\includegraphics[width=\\paperwidth, height=\\paperheight, keepaspectratio]{${safePath}}\n\\clearpage`
     }
 
-    return `\\includegraphics[width=\\textwidth]{${escapedPath}}`
+    const isMermaid = /virtual_mermaid-\d+\.png$/i.test(safePath)
+    const width = isMermaid ? '0.2\\textwidth' : '0.5\\textwidth'
+    return `\\includegraphics[width=${width}]{${safePath}}`
   }
 
   private renderCode(code: Tokens.Code): string {
     if (code.lang === 'mermaid') {
-      return `\\begin{center}\\fbox{\\begin{minipage}{0.9\\textwidth}\n\\textbf{Mermaid}: Diagram cannot be natively rendered in LaTeX/PDF.\n\\end{minipage}}\\end{center}`
+      return `\\begin{center}\\fbox{\\begin{minipage}{0.2\\textwidth}\n\\textbf{Mermaid}: Diagram cannot be natively rendered in LaTeX/PDF.\n\\end{minipage}}\\end{center}`
     }
     if (code.lang) {
       return `\\begin{lstlisting}[language=${this.escapeLatex(code.lang)}]\n${code.text}\n\\end{lstlisting}`
@@ -541,6 +587,7 @@ export class LatexCreator implements Creator {
         case '_': result += '\\_'; break
         case '~': result += '\\textasciitilde{}'; break
         case '^': result += '\\textasciicircum{}'; break
+        case '\u00A0': result += ' '; break
         default: result += ch
       }
       i++

@@ -324,6 +324,28 @@ describe('DocxCreator', () => {
     })
   })
 
+  describe('cover page', () => {
+    it('renders title, subtitle and author when cover enabled', async () => {
+      const buf = await createDocx('', {
+        frontMatter: { ...defaultConfig.frontMatter, enableCoverPage: true },
+      })
+      const xml = await extractDocxXml(buf)
+      expect(xml).toContain('My Book')
+      expect(xml).toContain('A Subtitle')
+      expect(xml).toContain('Author')
+    })
+
+    it('renders only author when no title or subtitle', async () => {
+      const buf = await createDocx('', {
+        source: { ...defaultConfig.source, metadata: { title: '', subtitle: '', author: 'Juan' } },
+        frontMatter: { ...defaultConfig.frontMatter, enableCoverPage: true },
+      })
+      const xml = await extractDocxXml(buf)
+      expect(xml).toContain('Juan')
+      expect(xml).not.toContain('My Book')
+    })
+  })
+
   describe('sections', () => {
     it('produces larger output with more paragraphs', async () => {
       const md = '# Chapter 1\n\nParagraph 1.\n\nParagraph 2.'

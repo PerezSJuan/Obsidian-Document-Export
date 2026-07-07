@@ -291,7 +291,7 @@ describe('image embeds', () => {
       path: 'nota.md',
     }]])
     const result = resolveEmbeds('![[nota#^bloque2]]', noteMap, 'resolve')
-    expect(result).toBe('Key line')
+    expect(result).toBe('<footnote id="bloque2">Key line</footnote>')
   })
 
   it('returns original embed when heading not found', () => {
@@ -659,7 +659,7 @@ describe('tags', () => {
 describe('block references', () => {
   it('elimina ^block-id al final de linea', () => {
     const result = normalizeNote('Texto importante. ^bloque1\n\nSigue.', 'a.md')
-    expect(result.content).toBe('Texto importante.\n\nSigue.')
+    expect(result.content).toContain('<blocklabel id="bloque1"></blocklabel>Texto importante.')
     expect(result.content).not.toContain('^bloque1')
   })
 
@@ -674,7 +674,7 @@ describe('block references', () => {
     expect(result.content).toContain('Primero.')
     expect(result.content).not.toContain('^bloque1')
     expect(result.content).not.toContain('[[#^bloque1]]')
-    expect(result.content).toContain('Ver Primero.')
+    expect(result.content).toContain('<footnote id="bloque1">Primero.</footnote>')
   })
 
   it('fallback a texto plano #^id cuando el bloque no existe', () => {
@@ -699,7 +699,8 @@ describe('block references', () => {
 
   it('varios bloques y referencias en el mismo documento', () => {
     const result = normalizeNote('A. ^a\n\nB. ^b\n\nVer [[#^a]] y [[#^b]].', 'a.md')
-    expect(result.content).toContain('Ver A. y B.')
+    expect(result.content).toContain('<footnote id="a">A.</footnote>')
+    expect(result.content).toContain('<footnote id="b">B.</footnote>')
     expect(result.content).not.toContain('^a')
     expect(result.content).not.toContain('^b')
     expect(result.content).not.toContain('[[#^a]]')

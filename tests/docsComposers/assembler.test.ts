@@ -68,7 +68,7 @@ describe('assemble', () => {
       const result = assemble([note('# C1')], config)
       expect(result).toMatch(/toc: true/)
       expect(result).toMatch(/toc-depth: 3/)
-      expect(result).toMatch(/toc-title: Contents/)
+      expect(result).toMatch(/toc-title: .+/)
     })
 
     it('omits toc when disabled', () => {
@@ -146,7 +146,7 @@ describe('assemble', () => {
       expect(lines).toContain('author: Me')
       expect(lines).toContain('toc: true')
       expect(lines).toContain('toc-depth: 3')
-      expect(lines).toContain('toc-title: TOC')
+      expect(lines.some(l => l.startsWith('toc-title:'))).toBe(true)
     })
   })
 

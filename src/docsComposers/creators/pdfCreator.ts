@@ -311,14 +311,11 @@ export class PdfCreator implements Creator {
         const bytes = await this.loadAssetBytes(ctx, coverPath, '')
         const image = await this.embedImage(ctx, coverPath, bytes)
         if (image) {
-          const fit = image.scaleToFit(ctx.pageWidth, ctx.pageHeight)
-          const x = (ctx.pageWidth - fit.width) / 2
-          const y = (ctx.pageHeight - fit.height) / 2
           page.drawImage(image, {
-            x,
-            y,
-            width: fit.width,
-            height: fit.height,
+            x: 0,
+            y: 0,
+            width: ctx.pageWidth,
+            height: ctx.pageHeight,
           })
         }
       } catch {

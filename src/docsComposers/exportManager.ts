@@ -56,19 +56,24 @@ export class ExportManager {
     onProgress?.(1, 5, t('progress-mermaid'))
     bodyMd = await this.processMermaidBlocks(bodyMd, assets)
 
-    onProgress?.(2, 5, t('progress-formulas'))
-    bodyMd = await renderFormulasInMarkdown(bodyMd, assets)
-
     onProgress?.(3, 5, t('progress-pdf-embeds'))
     bodyMd = await renderPdfEmbeds(bodyMd, assets)
 
-    bodyMd = convertTags(bodyMd, config.structure.tagMode)
+    const needsFormulaRendering = formats.pdf || formats.docx
+    let renderedMd = bodyMd
+    if (needsFormulaRendering) {
+      onProgress?.(2, 5, t('progress-formulas'))
+      renderedMd = await renderFormulasInMarkdown(bodyMd, assets)
+    }
+
+    renderedMd = convertTags(renderedMd, config.structure.tagMode)
 
     onProgress?.(4, 5, t('progress-generating'))
     if (formats.latex) {
       const creator = this.creators.get('latex')
       if (creator) {
-        const result = await creator.render(bodyMd, config, assets)
+        const latexMd = convertTags(bodyMd, config.structure.tagMode)
+        const result = await creator.render(latexMd, config, assets)
         results.push({ format: 'latex', fileName: result.fileName, data: result.data, extraFiles: result.extraFiles })
       }
     }
@@ -76,7 +81,7 @@ export class ExportManager {
     if (formats.pdf) {
       const creator = this.creators.get('pdf')
       if (creator) {
-        const result = await creator.render(bodyMd, config, assets)
+        const result = await creator.render(renderedMd, config, assets)
         results.push({ format: 'pdf', fileName: result.fileName, data: result.data, extraFiles: result.extraFiles })
       }
     }
@@ -84,7 +89,7 @@ export class ExportManager {
     if (formats.docx) {
       const creator = this.creators.get('docx')
       if (creator) {
-        const result = await creator.render(bodyMd, config, assets)
+        const result = await creator.render(renderedMd, config, assets)
         results.push({ format: 'docx', fileName: result.fileName, data: result.data, extraFiles: result.extraFiles })
       }
     }
