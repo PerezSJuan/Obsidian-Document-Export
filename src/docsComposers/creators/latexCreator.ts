@@ -63,9 +63,9 @@ export class LatexCreator implements Creator {
         const resolved = assets.resolve(origPath, '')
         const data = await assets.read(resolved)
         extraFiles.push({ name: safePath, data })
-      } catch (e) {
-        console.error(`[LaTeX export] Failed to read image: ${origPath}`, e)
-      }
+        } catch {
+          // image read failed
+        }
     }
 
     for (const [dataUri, safePath] of this.dataUriMap) {
@@ -77,8 +77,8 @@ export class LatexCreator implements Creator {
           bytes[i] = binaryStr.charCodeAt(i)
         }
         extraFiles.push({ name: safePath, data: bytes.buffer })
-      } catch (e) {
-        console.error(`[LaTeX export] Failed to decode data URI`, e)
+      } catch {
+        // data URI decode failed
       }
     }
 

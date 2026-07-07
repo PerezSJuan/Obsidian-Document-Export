@@ -175,7 +175,6 @@ export class ExportVaultModal extends Modal {
 			this.onExport(this.getConfig()).then(() => {
 				this.close();
 			}).catch((err) => {
-				console.error(err);
 				new Notice(t('notice-export-failed') + ': ' + ((err as Error).message || t('unknown-error')));
 				this.close();
 			});

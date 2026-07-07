@@ -159,7 +159,24 @@ export function normalizeNote(
   content = convertTags(content, options?.tagMode)
   content = restoreCodeBlocks(content, protectedBlocks)
 
+  const depth = headingDepthFromMode(options?.noteNameMode ?? '')
+  if (depth > 0 && title) {
+    const headingPrefix = '#'.repeat(depth)
+    content = `${headingPrefix} ${title}\n\n${content}`
+  }
+
   return { path, title, content, frontmatter }
+}
+
+function headingDepthFromMode(mode: string): number {
+  switch (mode) {
+    case 'part': return 1
+    case 'chapter': return 1
+    case 'section': return 2
+    case 'subsection': return 3
+    case 'subsubsection': return 4
+    default: return 0
+  }
 }
 
 interface ProtectedBlock {

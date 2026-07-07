@@ -31,7 +31,7 @@ An [Obsidian](https://obsidian.md) plugin that exports your vault notes to **PDF
 ### From a release
 
 1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/your-username/obsidian-document-export/releases).
-2. Create the folder `<vault>/.obsidian/plugins/obsidian-document-export/` in your vault.
+2. Create the folder `<vault>/.obsidian/plugins/document-export/` in your vault.
 3. Copy the three files into that folder.
 4. In Obsidian, go to **Settings → Community plugins**, refresh the list, and enable **Document Export**.
 
@@ -289,7 +289,7 @@ A ribbon icon (file-down) is also added to the sidebar for quick access.
 
 ## Troubleshooting
 
-- **Plugin doesn't appear**: Ensure `main.js`, `manifest.json`, and `styles.css` are in `<vault>/.obsidian/plugins/obsidian-document-export/`. Reload Obsidian.
+- **Plugin doesn't appear**: Ensure `main.js`, `manifest.json`, and `styles.css` are in `<vault>/.obsidian/plugins/document-export/`. Reload Obsidian.
 - **Export button does nothing**: Check that at least one output format is selected and at least one note is loaded.
 - **Broken wikilinks in manifest mode**: The plugin highlights broken links in red. Verify the target notes exist in your vault.
 - **Cover image not showing**: Use a vault-relative path (e.g., `assets/cover.png`). Absolute paths and URLs may not resolve correctly.

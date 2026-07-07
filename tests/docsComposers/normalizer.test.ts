@@ -29,6 +29,46 @@ describe('normalizeNote', () => {
     expect(result.title).toBe('mi-documento')
   })
 
+  describe('noteNameMode', () => {
+    it('prepends title as chapter heading when mode is chapter', () => {
+      const result = normalizeNote(
+        '---\ntitle: Mi Capítulo\n---\n\nContenido.',
+        'folder/nota.md',
+        { wikilinkMode: 'resolve', tagMode: 'keep', noteNameMode: 'chapter' },
+      )
+      expect(result.content).toContain('# Mi Capítulo')
+      expect(result.content).toContain('Contenido.')
+    })
+
+    it('prepends title as section heading when mode is section', () => {
+      const result = normalizeNote(
+        '---\ntitle: Mi Título\n---\n\nContenido.',
+        'folder/nota.md',
+        { wikilinkMode: 'resolve', tagMode: 'keep', noteNameMode: 'section' },
+      )
+      expect(result.content).toContain('## Mi Título')
+    })
+
+    it('does not prepend title when mode is none', () => {
+      const result = normalizeNote(
+        '---\ntitle: Mi Título\n---\n\nContenido.',
+        'folder/nota.md',
+        { wikilinkMode: 'resolve', tagMode: 'keep', noteNameMode: 'none' },
+      )
+      expect(result.content).not.toContain('# Mi Título')
+      expect(result.content).toContain('Contenido.')
+    })
+
+    it('uses filename as title when no frontmatter title', () => {
+      const result = normalizeNote(
+        'Contenido.',
+        'folder/mi-nota.md',
+        { wikilinkMode: 'resolve', tagMode: 'keep', noteNameMode: 'chapter' },
+      )
+      expect(result.content).toContain('# mi-nota')
+    })
+  })
+
   it('resolves title from path with multiple extensions', () => {
     const result = normalizeNote('', 'data.tar.gz.md')
     expect(result.title).toBe('data.tar.gz')

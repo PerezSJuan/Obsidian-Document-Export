@@ -36,8 +36,9 @@ export class ExportManager {
         const pngBuffer = await renderMermaidToPNG(code, id)
         assets.writeVirtual?.(virtualPath, pngBuffer)
         result = result.replace(blocks[i]!, `![Mermaid Diagram](${virtualPath})`)
-      } catch {
-        result = result.replace(blocks[i]!, '> *Mermaid diagram could not be rendered*\n')
+      } catch (err) {
+        console.warn('[Document Export] Mermaid diagram rendering failed:', err)
+        result = result.replace(blocks[i]!, `> *Mermaid diagram unavailable*\n\`\`\`mermaid\n${code}\n\`\`\``)
       }
     }
     return result
@@ -57,7 +58,11 @@ export class ExportManager {
     bodyMd = await this.processMermaidBlocks(bodyMd, assets)
 
     onProgress?.(3, 5, t('progress-pdf-embeds'))
-    bodyMd = await renderPdfEmbeds(bodyMd, assets)
+    try {
+      bodyMd = await renderPdfEmbeds(bodyMd, assets)
+    } catch (err) {
+      console.warn('[Document Export] PDF embed rendering unavailable:', err)
+    }
 
     const needsFormulaRendering = formats.pdf || formats.docx
     let renderedMd = bodyMd

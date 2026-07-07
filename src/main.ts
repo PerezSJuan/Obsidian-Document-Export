@@ -20,6 +20,7 @@ import { PdfCreator } from './docsComposers/creators/pdfCreator.js';
 import { DocxCreator } from './docsComposers/creators/docxCreator.js';
 import { ObsidianAssetResolver } from './infra/obsidianAssetResolver.js';
 import { joinVaultPath, normalizeVaultRelativePath } from './utils/vaultPath.js';
+import { probePdfCapability } from './docsComposers/pdfEmbedRenderer.js';
 import { t } from './i18n.js';
 
 export default class DocumentExportPlugin extends Plugin {
@@ -31,6 +32,8 @@ export default class DocumentExportPlugin extends Plugin {
   async onload() {
     await this.loadSettings();
     this.vaultBasePath = (this.app.vault.adapter as { getBasePath?(): string }).getBasePath?.() || '';
+
+    void probePdfCapability();
 
     this.exportManager.registerCreator('latex', new LatexCreator());
     this.exportManager.registerCreator('pdf', new PdfCreator());

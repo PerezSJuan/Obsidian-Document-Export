@@ -95,7 +95,13 @@ export class DocxCreator implements Creator {
 
     if (config.frontMatter.enableCoverPage && (config.frontMatter.coverImagePath || config.source.metadata.title || config.source.metadata.subtitle || config.source.metadata.author)) {
       sections.push({
-        properties: { type: 'nextPage' },
+        properties: {
+          type: 'nextPage',
+          page: {
+            size: { width: 12240, height: 15840 },
+            margin: { top: 0, right: 0, bottom: 0, left: 0, header: 0, footer: 0 },
+          },
+        },
         children: await this.buildCoverPage(config, assets),
       })
     }
@@ -293,22 +299,14 @@ export class DocxCreator implements Creator {
         const data = await assets.read(src)
         const buf = Buffer.from(data)
         const ext = this.getImageExt(config.frontMatter.coverImagePath)
-        const dim = getImageDimensions(buf)
-        let width = 600
-        let height = 800
-        if (dim) {
-          const scaled = scaleToFit(dim.width, dim.height, width, height)
-          width = scaled.width
-          height = scaled.height
-        }
         paragraphs.push(
           new Paragraph({
             children: [new ImageRun({
               type: ext as 'jpg' | 'png' | 'gif' | 'bmp',
               data: buf,
-              transformation: { width, height },
+              transformation: { width: 820, height: 1060 },
             })],
-            alignment: AlignmentType.CENTER,
+            spacing: { before: 0, after: 0 },
           }),
         )
       } catch {
@@ -318,36 +316,36 @@ export class DocxCreator implements Creator {
 
     if (!hasImage) {
       paragraphs.push(new Paragraph({ children: [], spacing: { before: 4000 } }))
-    }
 
-    if (meta.title) {
-      paragraphs.push(
-        new Paragraph({
-          children: [new TextRun({ text: meta.title, size: 56, font: this.fontName, bold: true })],
-          alignment: AlignmentType.CENTER,
-          spacing: { before: hasImage ? 600 : 0, after: 200 },
-        }),
-      )
-    }
+      if (meta.title) {
+        paragraphs.push(
+          new Paragraph({
+            children: [new TextRun({ text: meta.title, size: 56, font: this.fontName, bold: true })],
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 0, after: 200 },
+          }),
+        )
+      }
 
-    if (meta.subtitle) {
-      paragraphs.push(
-        new Paragraph({
-          children: [new TextRun({ text: meta.subtitle, size: 32, font: this.fontName, italics: true })],
-          alignment: AlignmentType.CENTER,
-          spacing: { before: 200, after: 200 },
-        }),
-      )
-    }
+      if (meta.subtitle) {
+        paragraphs.push(
+          new Paragraph({
+            children: [new TextRun({ text: meta.subtitle, size: 32, font: this.fontName, italics: true })],
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 200, after: 200 },
+          }),
+        )
+      }
 
-    if (meta.author) {
-      paragraphs.push(
-        new Paragraph({
-          children: [new TextRun({ text: meta.author, size: 28, font: this.fontName, color: '333333' })],
-          alignment: AlignmentType.CENTER,
-          spacing: { before: 400 },
-        }),
-      )
+      if (meta.author) {
+        paragraphs.push(
+          new Paragraph({
+            children: [new TextRun({ text: meta.author, size: 28, font: this.fontName, color: '333333' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 400 },
+          }),
+        )
+      }
     }
 
     return paragraphs

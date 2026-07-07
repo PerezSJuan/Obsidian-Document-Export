@@ -70,7 +70,9 @@ for (let i = 0; i < 256; i++) {
 function crc32(data: Uint8Array): number {
   let crc = 0xFFFFFFFF
   for (let i = 0; i < data.length; i++) {
-    crc = CRC_TABLE[(crc ^ data[i])!]! ^ (crc >>> 8)
+    const byte = data[i] ?? 0
+    const idx = (crc ^ byte) >>> 0
+    crc = (CRC_TABLE[idx] ?? 0) ^ (crc >>> 8)
   }
   return (crc ^ 0xFFFFFFFF) >>> 0
 }
