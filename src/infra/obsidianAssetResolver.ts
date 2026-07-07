@@ -13,17 +13,15 @@ const REMOTE_READ_TIMEOUT_MS = 10000
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
    
-  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  let timeoutId: ReturnType<typeof setTimeout> | number | undefined
   const timeout = new Promise<T>((_, reject) => {
-    // eslint-disable-next-line obsidianmd/prefer-window-timers
-    timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs)
+    timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs)
   })
 
   try {
     return await Promise.race([promise, timeout])
   } finally {
-    // eslint-disable-next-line obsidianmd/prefer-window-timers
-    if (timeoutId !== undefined) clearTimeout(timeoutId)
+    if (timeoutId !== undefined) window.clearTimeout(timeoutId)
   }
 }
 

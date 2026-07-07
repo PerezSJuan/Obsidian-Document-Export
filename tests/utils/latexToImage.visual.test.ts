@@ -11,6 +11,8 @@ vi.mock('../../src/utils/renderNodeToPng.js', () => ({
   renderNodeToPng: vi.fn(() => Promise.resolve('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==')),
 }))
 
+vi.stubGlobal('activeDocument', document)
+
 import { latexToImage } from '../../src/utils/latexToImage.js'
 
 const FORMULAS: Array<{ name: string; tex: string; display: boolean }> = [

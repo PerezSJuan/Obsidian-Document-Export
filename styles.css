@@ -434,8 +434,8 @@
 	max-height: 90vh;
 }
 
-.export-modal__hidden-input {
-	display: none !important;
+.export-modal .export-modal__hidden-input {
+	display: none;
 }
 
 .export-modal__note-row.is-drag-over {
@@ -445,4 +445,25 @@
 .export-modal__field-stack.is-hidden,
 .export-modal__grid.is-hidden {
 	display: none;
+}
+
+.export-modal__offscreen {
+	position: absolute;
+	left: -10000px;
+	top: -10000px;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+}
+
+.export-modal__measure {
+	display: inline-block;
+	color: #000;
+	max-width: none;
+}
+
+.export-modal__katex-reset {
+	color: #000;
+	margin: 0;
+	padding: 0;
 }

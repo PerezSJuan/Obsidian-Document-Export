@@ -18,6 +18,7 @@ describe('ObsidianAssetResolver', () => {
 
   it('times out remote reads', async () => {
     vi.useFakeTimers()
+    vi.stubGlobal('window', { setTimeout, clearTimeout })
     const pending = new Promise(() => {}) as unknown as ReturnType<typeof requestUrl>
     vi.mocked(requestUrl).mockImplementation(() => pending)
 

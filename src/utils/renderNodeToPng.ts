@@ -91,21 +91,18 @@ export async function renderNodeToPng(
   clone.style.padding = `${PADDING}px`
 
   if (fontEmbedCSS) {
-    // eslint-disable-next-line obsidianmd/no-forbidden-elements, obsidianmd/prefer-active-doc
-    const styleEl = document.createElement('style')
+    const styleEl = activeDocument.createElement('style')
     styleEl.textContent = fontEmbedCSS
     clone.appendChild(styleEl)
   }
 
   const xmlns = 'http://www.w3.org/2000/svg'
-  // eslint-disable-next-line obsidianmd/prefer-active-doc
-  const svg = document.createElementNS(xmlns, 'svg')
+  const svg = activeDocument.createElementNS(xmlns, 'svg')
   svg.setAttribute('width', `${svgW}`)
   svg.setAttribute('height', `${svgH}`)
   svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`)
 
-  // eslint-disable-next-line obsidianmd/prefer-active-doc
-  const foreignObject = document.createElementNS(xmlns, 'foreignObject')
+  const foreignObject = activeDocument.createElementNS(xmlns, 'foreignObject')
   foreignObject.setAttribute('width', '100%')
   foreignObject.setAttribute('height', '100%')
   foreignObject.setAttribute('x', '0')
@@ -125,8 +122,7 @@ export async function renderNodeToPng(
     img.src = svgDataUrl
   })
 
-  // eslint-disable-next-line obsidianmd/prefer-active-doc
-  const fullCanvas = document.createElement('canvas')
+  const fullCanvas = activeDocument.createElement('canvas')
   fullCanvas.width = svgW * pixelRatio
   fullCanvas.height = svgH * pixelRatio
   const fullCtx = fullCanvas.getContext('2d')!
@@ -137,8 +133,7 @@ export async function renderNodeToPng(
   const bounds = findContentBounds(fullCanvas, backgroundColor)
 
   if (bounds.width <= 0 || bounds.height <= 0) {
-    // eslint-disable-next-line obsidianmd/prefer-active-doc
-    const fallbackCanvas = document.createElement('canvas')
+    const fallbackCanvas = activeDocument.createElement('canvas')
     fallbackCanvas.width = baseW * pixelRatio
     fallbackCanvas.height = baseH * pixelRatio
     const fallbackCtx = fallbackCanvas.getContext('2d')!
@@ -154,8 +149,7 @@ export async function renderNodeToPng(
     return fallbackCanvas.toDataURL()
   }
 
-  // eslint-disable-next-line obsidianmd/prefer-active-doc
-  const finalCanvas = document.createElement('canvas')
+  const finalCanvas = activeDocument.createElement('canvas')
   finalCanvas.width = bounds.width
   finalCanvas.height = bounds.height
   const finalCtx = finalCanvas.getContext('2d')!

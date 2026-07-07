@@ -61,14 +61,17 @@ describe('renderMermaidToPNG', () => {
   beforeEach(() => {
     const img = mockImage()
     const canvas = mockCanvas()
-    vi.stubGlobal('document', {
+    const docMock = {
       createElement: vi.fn((tag: string) => {
-        if (tag === 'div') return { style: {}, remove: vi.fn() }
+        if (tag === 'div') return { style: {}, classList: { add: vi.fn() }, remove: vi.fn() }
         if (tag === 'canvas') return canvas
         return {}
       }),
       body: { appendChild: vi.fn() },
-    })
+    }
+    vi.stubGlobal('window', { setTimeout, clearTimeout })
+    vi.stubGlobal('document', docMock)
+    vi.stubGlobal('activeDocument', docMock)
     vi.stubGlobal('Image', mockImageConstructor(img))
   })
 
@@ -111,14 +114,17 @@ describe('renderMermaidToPNG', () => {
       getContext: vi.fn(() => ({ drawImage: vi.fn() })),
       toBlob: vi.fn((cb: (b: Blob | null) => void) => cb(null)),
     }
-    vi.stubGlobal('document', {
+    const docMock = {
       createElement: vi.fn((tag: string) => {
-        if (tag === 'div') return { style: {}, remove: vi.fn() }
+        if (tag === 'div') return { style: {}, classList: { add: vi.fn() }, remove: vi.fn() }
         if (tag === 'canvas') return canvas
         return {}
       }),
       body: { appendChild: vi.fn() },
-    })
+    }
+    vi.stubGlobal('window', { setTimeout, clearTimeout })
+    vi.stubGlobal('document', docMock)
+    vi.stubGlobal('activeDocument', docMock)
 
     vi.mocked(mermaid.render).mockResolvedValue({ svg: '<svg width="100" height="50"></svg>' } as never)
     await expect(renderMermaidToPNG('graph TD; A-->B;', 'test-5')).rejects.toThrow('Canvas toBlob returned null')

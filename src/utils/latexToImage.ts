@@ -1,15 +1,14 @@
 import type { KatexOptions } from 'katex'
 import { renderNodeToPng } from './renderNodeToPng.js'
 
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access */
 async function getKatex(): Promise<typeof import('katex')> {
-  if (typeof window !== 'undefined' && (window as any).katex) {
-    return (window as any).katex as typeof import('katex')
+  const w = window as { katex?: typeof import('katex') }
+  if (w.katex) {
+    return w.katex
   }
   const mod = await import('katex')
   return mod.default
 }
-/* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access */
 
 const KATEX_CSS_URL = 'https://cdn.jsdelivr.net/npm/katex@0.16.47/dist/katex.min.css'
 
@@ -19,15 +18,9 @@ let measureContainer: HTMLDivElement | null = null
 
 function getContainer(): HTMLDivElement {
   if (!measureContainer) {
-    // eslint-disable-next-line obsidianmd/prefer-active-doc
-    measureContainer = document.createElement('div')
-    /* eslint-disable obsidianmd/no-static-styles-assignment */
-    measureContainer.style.display = 'inline-block'
-    measureContainer.style.color = '#000'
-    measureContainer.style.maxWidth = 'none'
-    /* eslint-enable obsidianmd/no-static-styles-assignment */
-    // eslint-disable-next-line obsidianmd/prefer-active-doc
-    document.body.appendChild(measureContainer)
+    measureContainer = activeDocument.createElement('div')
+    measureContainer.classList.add('export-modal__measure')
+    activeDocument.body.appendChild(measureContainer)
   }
   return measureContainer
 }
@@ -65,8 +58,7 @@ async function embedFontsInCss(cssText: string): Promise<string> {
       const resolved = url.startsWith('https://')
         ? url
         : new URL(url, KATEX_CSS_URL).href
-      // eslint-disable-next-line no-restricted-globals
-      const res = await fetch(resolved)
+      const res = await window.fetch(resolved)
       const buffer = await res.arrayBuffer()
       const dataUri = await bufferToBase64(buffer, getMime(url))
       return rule.replace(url, dataUri)
@@ -81,8 +73,7 @@ async function embedFontsInCss(cssText: string): Promise<string> {
 async function ensureKaTeXCss(): Promise<void> {
   if (katexLayoutCss !== null) return
   try {
-    // eslint-disable-next-line no-restricted-globals
-    const response = await fetch(KATEX_CSS_URL)
+    const response = await window.fetch(KATEX_CSS_URL)
     let cssText = await response.text()
     cssText = cssText.replace(/@font-face\s*\{[^}]*\}/g, '')
     katexLayoutCss = cssText
@@ -96,8 +87,7 @@ async function getFontEmbedCss(): Promise<string> {
     return fontEmbedCss
   }
   try {
-    // eslint-disable-next-line no-restricted-globals
-    const response = await fetch(KATEX_CSS_URL)
+    const response = await window.fetch(KATEX_CSS_URL)
     let cssText = await response.text()
     fontEmbedCss = await embedFontsInCss(cssText)
     return fontEmbedCss
@@ -139,26 +129,18 @@ export async function latexToImage(
     innerHtml += `<style data-katex="">${katexLayoutCss}</style>`
   }
   innerHtml += html
-  /* eslint-disable no-unsanitized/property, @microsoft/sdl/no-inner-html */
-  container.innerHTML = innerHtml
-  /* eslint-enable no-unsanitized/property, @microsoft/sdl/no-inner-html */
+  const parsed = new DOMParser().parseFromString(innerHtml, 'text/html')
+  container.replaceChildren(...Array.from(parsed.body.childNodes))
 
   container.style.fontSize = `${fontSize}px`
 
   for (const el of Array.from(container.querySelectorAll<HTMLElement>('.katex, .katex-display'))) {
-    /* eslint-disable-next-line obsidianmd/no-static-styles-assignment */
-    el.style.color = '#000'
-    /* eslint-disable-next-line obsidianmd/no-static-styles-assignment */
-    el.style.margin = '0'
-    /* eslint-disable-next-line obsidianmd/no-static-styles-assignment */
-    el.style.padding = '0'
+    el.classList.add('export-modal__katex-reset')
   }
 
   try {
-    // eslint-disable-next-line obsidianmd/prefer-active-doc
-    if (document.fonts) {
-      // eslint-disable-next-line obsidianmd/prefer-active-doc
-      await document.fonts.ready
+    if (activeDocument.fonts) {
+      await activeDocument.fonts.ready
     }
 
     const katexFontCss = await getFontEmbedCss()

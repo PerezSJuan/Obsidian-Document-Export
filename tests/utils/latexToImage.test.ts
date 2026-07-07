@@ -22,6 +22,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(renderNodeToPng).mockResolvedValue(MOCK_DATA_URL)
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('fetch mock')))
+  vi.stubGlobal('activeDocument', document)
 })
 
 afterEach(() => {
@@ -82,8 +83,7 @@ describe('latexToImage', () => {
     const { latexToImage } = await import('../../src/utils/latexToImage.js')
     await latexToImage('x')
 
-    // eslint-disable-next-line obsidianmd/prefer-active-doc
-    const containers = document.body.querySelectorAll('div')
+    const containers = activeDocument.body.querySelectorAll('div')
     expect(containers.length).toBe(1)
     expect(containers[0]!.innerHTML).toBe('')
   })

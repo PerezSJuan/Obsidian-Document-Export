@@ -33,16 +33,14 @@ function toBase64(str: string): string {
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
    
-  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  let timeoutId: ReturnType<typeof setTimeout> | number | undefined
   const timeout = new Promise<T>((_, reject) => {
-    // eslint-disable-next-line obsidianmd/prefer-window-timers
-    timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs)
+    timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs)
   })
   try {
     return await Promise.race([promise, timeout])
   } finally {
-    // eslint-disable-next-line obsidianmd/prefer-window-timers
-    if (timeoutId !== undefined) clearTimeout(timeoutId)
+    if (timeoutId !== undefined) window.clearTimeout(timeoutId)
   }
 }
 
@@ -50,16 +48,14 @@ function loadImage(src: string, timeoutMs: number): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
      
-    let timeoutId: ReturnType<typeof setTimeout> | undefined
-    // eslint-disable-next-line obsidianmd/prefer-window-timers
-    timeoutId = setTimeout(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | number | undefined
+    timeoutId = window.setTimeout(() => {
       img.onload = null
       img.onerror = null
       reject(new Error('Mermaid SVG image load timed out'))
     }, timeoutMs)
     img.onload = () => {
-      // eslint-disable-next-line obsidianmd/prefer-window-timers
-      if (timeoutId !== undefined) clearTimeout(timeoutId)
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId)
       if (img.naturalWidth === 0 || img.naturalHeight === 0) {
         reject(new Error('Mermaid SVG has zero dimensions'))
       } else {
@@ -67,8 +63,7 @@ function loadImage(src: string, timeoutMs: number): Promise<HTMLImageElement> {
       }
     }
     img.onerror = () => {
-      // eslint-disable-next-line obsidianmd/prefer-window-timers
-      if (timeoutId !== undefined) clearTimeout(timeoutId)
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId)
       reject(new Error('Failed to decode SVG as image'))
     }
     img.src = src
@@ -78,14 +73,12 @@ function loadImage(src: string, timeoutMs: number): Promise<HTMLImageElement> {
 function canvasToBlob(canvas: HTMLCanvasElement, timeoutMs: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
      
-    let timeoutId: ReturnType<typeof setTimeout> | undefined
-    // eslint-disable-next-line obsidianmd/prefer-window-timers
-    timeoutId = setTimeout(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | number | undefined
+    timeoutId = window.setTimeout(() => {
       reject(new Error('Canvas export timed out'))
     }, timeoutMs)
     canvas.toBlob((blob) => {
-      // eslint-disable-next-line obsidianmd/prefer-window-timers
-      if (timeoutId !== undefined) clearTimeout(timeoutId)
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId)
       if (blob) {
         resolve(blob)
       } else {
@@ -101,22 +94,9 @@ export async function renderMermaidToPNG(code: string, id: string): Promise<Arra
     initialized = true
   }
 
-  // eslint-disable-next-line obsidianmd/prefer-active-doc
-  const container = document.createElement('div')
-  /* eslint-disable-next-line obsidianmd/no-static-styles-assignment */
-  container.style.position = 'absolute'
-  /* eslint-disable-next-line obsidianmd/no-static-styles-assignment */
-  container.style.left = '-10000px'
-  /* eslint-disable-next-line obsidianmd/no-static-styles-assignment */
-  container.style.top = '-10000px'
-  /* eslint-disable-next-line obsidianmd/no-static-styles-assignment */
-  container.style.width = '1px'
-  /* eslint-disable-next-line obsidianmd/no-static-styles-assignment */
-  container.style.height = '1px'
-  /* eslint-disable-next-line obsidianmd/no-static-styles-assignment */
-  container.style.overflow = 'hidden'
-  // eslint-disable-next-line obsidianmd/prefer-active-doc
-  document.body.appendChild(container)
+  const container = activeDocument.createElement('div')
+  container.classList.add('export-modal__offscreen')
+  activeDocument.body.appendChild(container)
 
   try {
     const { svg } = await withTimeout(
@@ -130,8 +110,7 @@ export async function renderMermaidToPNG(code: string, id: string): Promise<Arra
     const dataUri = `data:image/svg+xml;base64,${toBase64(cleanSvg)}`
 
     const img = await loadImage(dataUri, IMAGE_TIMEOUT_MS)
-    // eslint-disable-next-line obsidianmd/prefer-active-doc
-    const canvas = document.createElement('canvas')
+    const canvas = activeDocument.createElement('canvas')
     canvas.width = dims.width
     canvas.height = dims.height
     const ctx = canvas.getContext('2d')!
