@@ -21,7 +21,8 @@ import { DocxCreator } from './docsComposers/creators/docxCreator.js';
 import { ObsidianAssetResolver } from './infra/obsidianAssetResolver.js';
 import { joinVaultPath, normalizeVaultRelativePath } from './utils/vaultPath.js';
 import { probePdfCapability } from './docsComposers/pdfEmbedRenderer.js';
-import { t } from './i18n.js';
+import { setLocale, t } from './i18n.js';
+import { getLanguage } from 'obsidian';
 
 export default class DocumentExportPlugin extends Plugin {
   settings!: DocumentExportSettings;
@@ -32,6 +33,8 @@ export default class DocumentExportPlugin extends Plugin {
   async onload() {
     await this.loadSettings();
     this.vaultBasePath = (this.app.vault.adapter as { getBasePath?(): string }).getBasePath?.() || '';
+
+    setLocale(getLanguage());
 
     void probePdfCapability();
 

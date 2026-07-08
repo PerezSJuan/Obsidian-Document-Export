@@ -1,6 +1,5 @@
 type LangDict = Record<string, string>
 
-const rawLocale = (navigator.language || 'en').toLowerCase().replace('-', '_')
 const localeMap: Record<string, string> = {
   es: 'es', es_es: 'es', es_mx: 'es', es_ar: 'es',
   fr: 'fr', fr_fr: 'fr', fr_ca: 'fr', fr_be: 'fr', fr_ch: 'fr',
@@ -26,8 +25,18 @@ const localeMap: Record<string, string> = {
   hu: 'hu', hu_hu: 'hu',
   uk: 'uk', uk_ua: 'uk',
 }
-const lang = rawLocale.split('_')[0]
-const locale = localeMap[rawLocale] ?? (lang ? localeMap[lang] : undefined) ?? 'en'
+
+function resolveLocale(raw: string): string {
+  const lower = raw.toLowerCase().replace('-', '_')
+  const lang = lower.split('_')[0]
+  return localeMap[lower] ?? (lang ? localeMap[lang] : undefined) ?? 'en'
+}
+
+let locale = resolveLocale(navigator.language || 'en')
+
+export function setLocale(langCode: string): void {
+  locale = resolveLocale(langCode)
+}
 
 const dict: Record<string, LangDict> = {
   'panel-book-contents': {
