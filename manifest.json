@@ -1,7 +1,7 @@
 {
 	"id": "juanperez-document-export",
 	"name": "Document Export",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"minAppVersion": "1.8.7",
 	"description": "Export your vault to PDF, DOCX, or LaTeX book formats.",
 	"author": "Juan Pérez Sierra",

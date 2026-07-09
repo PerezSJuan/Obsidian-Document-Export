@@ -58,6 +58,53 @@ const context = await esbuild.context({
 				});
 			},
 		},
+		{
+			name: 'strip-docx-ie-setimmediate',
+			setup(build) {
+				build.onResolve({ filter: /^docx$/ }, (args) => {
+					return {
+						path: require.resolve(args.path),
+						namespace: 'docx-patched',
+					};
+				});
+				build.onLoad({ filter: /.*/, namespace: 'docx-patched' }, async (args) => {
+					let code = await fs.promises.readFile(args.path, 'utf8');
+
+					const original = code;
+
+					// 1. Disable IE6-8 detection — ternary always takes setTimeout branch
+					code = code.replace(
+						/"onreadystatechange" in t\.document\.createElement\("script"\)/g,
+						'false'
+					);
+					code = code.replace(
+						/"onreadystatechange" in l\.createElement\("script"\)/g,
+						'false'
+					);
+
+					// 2. Remove dead createElement("script") calls in eliminated branches
+					code = code.replace(
+						/var e = t\.document\.createElement\("script"\);/,
+						''
+					);
+					code = code.replace(
+						/var t = l\.createElement\("script"\);/,
+						''
+					);
+
+					if (code === original) {
+						throw new Error(
+							'docx IE polyfill patch failed: expected patterns not found. Has docx changed version?'
+						);
+					}
+
+					return {
+						contents: code,
+						loader: 'js',
+					};
+				});
+			},
+		},
 	],
 });
 

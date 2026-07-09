@@ -1,6 +1,6 @@
 {
 	"name": "document-export",
-	"version": "1.0.0",
+	"version": "1.0.2",
 	"description": "Export your vault to PDF, DOCX, or LaTeX book formats.",
 	"main": "main.js",
 	"type": "module",
