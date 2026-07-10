@@ -467,3 +467,92 @@
 	margin: 0;
 	padding: 0;
 }
+
+/* ── Mobile ───────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+	.export-modal--fullscreen {
+		width: 100vw;
+		max-width: 100vw;
+		height: 100vh;
+		max-height: 100vh;
+		border-radius: 0;
+	}
+
+	.export-modal__body {
+		flex-direction: column;
+	}
+
+	.export-modal__nav {
+		width: 100%;
+		flex-direction: row;
+		border-right: none;
+		border-bottom: 1px solid var(--background-modifier-border);
+		padding: 0;
+		gap: 0;
+		overflow-x: auto;
+		overflow-y: hidden;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	.export-modal__nav-item {
+		flex-shrink: 0;
+		width: auto;
+		padding: 8px 8px;
+		gap: 3px;
+		font-size: 12px;
+		white-space: nowrap;
+		border: none;
+		border-radius: 0;
+		color: var(--text-muted);
+	}
+
+	.export-modal__nav-icon {
+		display: none;
+	}
+	.export-modal__nav-item.active {
+		box-shadow: none;
+		color: var(--interactive-accent);
+		border-bottom: 2px solid var(--interactive-accent);
+	}
+
+	.export-modal__nav-icon {
+		font-size: 14px;
+		width: auto;
+	}
+
+	.export-modal__panel {
+		padding: 16px;
+	}
+
+	.export-modal__footer {
+		padding: 10px 12px;
+	}
+
+	.export-modal__grid {
+		grid-template-columns: 1fr;
+	}
+
+	.export-modal__mapping-row {
+		grid-template-columns: 28px 1fr;
+		gap: 6px;
+	}
+
+	.export-modal__path-row {
+		grid-template-columns: 1fr;
+	}
+
+	.export-modal__badge {
+		min-width: 60px;
+		font-size: var(--font-ui-smaller);
+	}
+
+	.export-modal__setting-row {
+		flex-wrap: wrap;
+	}
+
+	.export-modal__panel-title {
+		font-size: var(--font-ui-medium);
+		margin-bottom: 14px;
+	}
+}
